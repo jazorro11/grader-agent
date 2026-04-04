@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agente Calificador</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      padding: 2rem;
+    }
+    h1 { font-size: 1.6rem; margin-bottom: 1.5rem; color: #2c3e50; }
+    h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #34495e; }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 0.6rem 0.8rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      margin-bottom: 0.8rem;
+    }
+    textarea { resize: vertical; min-height: 80px; }
+    button {
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary   { background: #3498db; color: white; }
+    .btn-success   { background: #2ecc71; color: white; }
+    .btn-danger    { background: #e74c3c; color: white; }
+    .btn-secondary { background: #95a5a6; color: white; }
+    .btn-warning   { background: #e67e22; color: white; }
+    #estado-rubrica {
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      display: inline-block;
+    }
+    .ok  { background: #d5f5e3; color: #1e8449; }
+    .err { background: #fadbd8; color: #922b21; }
+    .audio-controles { display: flex; gap: 0.8rem; align-items: center; margin-bottom: 0.8rem; }
+    #estado-grabacion { font-size: 0.85rem; color: #7f8c8d; }
+    #estado-grabacion.grabando { color: #e74c3c; font-weight: 600; }
+
+    /* Resultado */
+    #resultado {
+      display: none;
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 8px;
+      background: #eaf4fb;
+      border-left: 4px solid #3498db;
+    }
+    #resultado .puntaje { font-size: 1.8rem; font-weight: 700; color: #2980b9; }
+    #resultado .retro {
+      margin-top: 0.6rem;
+      font-size: 0.9rem;
+      color: #2c3e50;
+      background: #fef9e7;
+      border-left: 3px solid #f1c40f;
+      padding: 0.6rem 0.8rem;
+      border-radius: 4px;
+    }
+    #resultado .transcripcion { margin-top: 0.5rem; font-size: 0.85rem; color: #555; font-style: italic; }
+
+    /* Tabla */
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th { background: #2c3e50; color: white; padding: 0.6rem 0.8rem; text-align: left; }
+    td { padding: 0.6rem 0.8rem; border-bottom: 1px solid #eee; }
+    tr:hover td { background: #f8f9fa; }
+    .total-row td { background: #eaf4fb; font-weight: 700; }
+
+    /* Spinner */
+    .spinner {
+      display: none;
+      margin-left: 0.5rem;
+      font-size: 0.85rem;
+      color: #7f8c8d;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Agente Calificador</h1>
+
+<!-- SECCIÓN 1: Cargar rúbrica -->
+<div class="card">
+  <h2>1. Cargar rúbrica</h2>
+  <input type="file" id="archivo-rubrica" accept=".md">
+  <button class="btn-primary" onclick="cargarRubrica()">Cargar</button>
+  <span id="estado-rubrica">Sin rúbrica cargada</span>
+</div>
+
+<!-- SECCIÓN 2: Calificar alumno -->
+<div class="card">
+  <h2>2. Calificar respuesta</h2>
+  <input type="text" id="nombre-alumno" placeholder="Nombre del alumno">
+  <input type="text" id="pregunta"      placeholder="Pregunta (ej: Parte A)">
+
+  <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+    <button class="btn-secondary" onclick="mostrarTab('texto')">✏️ Texto</button>
+    <button class="btn-secondary" onclick="mostrarTab('audio')">🎙️ Audio</button>
+  </div>
+
+  <!-- Panel texto -->
+  <div id="panel-texto">
+    <textarea id="respuesta-texto" placeholder="Escribí la respuesta del alumno acá..."></textarea>
+    <button class="btn-success" onclick="calificarTexto()">Calificar</button>
+    <span class="spinner" id="spinner-texto">⏳ Calificando...</span>
+  </div>
+
+  <!-- Panel audio -->
+  <div id="panel-audio" style="display:none;">
+    <div class="audio-controles">
+      <button class="btn-danger"    id="btn-grabar"  onclick="iniciarGrabacion()">⏺ Grabar</button>
+      <button class="btn-secondary" id="btn-detener" onclick="detenerGrabacion()" disabled>⏹ Detener y calificar</button>
+      <span id="estado-grabacion">Listo para grabar</span>
+    </div>
+    <span class="spinner" id="spinner-audio">⏳ Transcribiendo y calificando...</span>
+  </div>
+
+  <!-- Resultado -->
+  <div id="resultado">
+    <div class="puntaje"       id="puntaje-texto"></div>
+    <div class="retro"         id="retro-texto"></div>
+    <div class="transcripcion" id="transcripcion-texto"></div>
+  </div>
+</div>
+
+<!-- SECCIÓN 2B: Calificar informe IEEE (PDF) -->
+<div class="card">
+  <h2>2B. Calificar informe IEEE (PDF)</h2>
+
+  <!-- Carga de rúbrica propia, independiente de la Sección 1 -->
+  <div style="margin-bottom:1rem; padding:0.8rem; background:#f8f9fa; border-radius:8px;">
+    <strong style="font-size:0.9rem;">Rúbrica IEEE</strong><br><br>
+    <input type="file" id="archivo-rubrica-ieee" accept=".md">
+    <button class="btn-primary" onclick="cargarRubricaIEEE()">Cargar rúbrica</button>
+    <span id="estado-rubrica-ieee" style="font-size:0.85rem; margin-left:0.5rem;">Sin rúbrica IEEE cargada</span>
+  </div>
+
+  <input type="text" id="nombre-alumno-pdf" placeholder="Nombre del alumno">
+  <input type="file" id="archivo-pdf" accept=".pdf" style="margin-bottom:0.8rem;"><br>
+  <button class="btn-success" onclick="calificarPDF()">Calificar informe</button>
+  <span class="spinner" id="spinner-pdf">⏳ Extrayendo y calificando...</span>
+
+  <!-- Resultado por criterios -->
+  <div id="resultado-pdf" style="display:none; margin-top:1rem;">
+    <div id="criterios-pdf"></div>
+    <div id="total-pdf" style="font-size:1.4rem; font-weight:700; color:#2980b9; margin-top:1rem;"></div>
+  </div>
+</div>
+</div>
+
+
+<!-- SECCIÓN 3: Resultados -->
+<div class="card">
+  <h2>3. Resultados acumulados</h2>
+  <div style="display:flex; gap:0.8rem; margin-bottom:1rem;">
+    <button class="btn-primary" onclick="cargarResultados()">🔄 Actualizar tabla</button>
+    <button class="btn-warning" onclick="limpiarResultados()">🗑️ Nueva sesión</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Alumno</th>
+        <th>Pregunta</th>
+        <th>Puntaje</th>
+        <th>Máximo</th>
+        <th>Retroalimentación</th>
+      </tr>
+    </thead>
+    <tbody id="tabla-resultados">
+      <tr><td colspan="5" style="color:#aaa;">Hacé clic en "Actualizar tabla"</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  let mediaRecorder = null;
+  let audioChunks   = [];
+
+  function mostrarTab(tab) {
+    document.getElementById("panel-texto").style.display = tab === "texto" ? "block" : "none";
+    document.getElementById("panel-audio").style.display = tab === "audio" ? "block" : "none";
+  }
+
+  async function cargarRubrica() {
+    const archivo = document.getElementById("archivo-rubrica").files[0];
+    if (!archivo) { alert("Seleccioná un archivo .md primero"); return; }
+    const form = new FormData();
+    form.append("rubrica", archivo);
+    const res  = await fetch("/cargar-rubrica", { method: "POST", body: form });
+    const data = await res.json();
+    const estado = document.getElementById("estado-rubrica");
+    if (data.ok) {
+      estado.textContent = "✅ " + archivo.name + " cargada";
+      estado.className = "ok";
+    } else {
+      estado.textContent = "❌ " + data.error;
+      estado.className = "err";
+    }
+  }
+
+  async function calificarTexto() {
+    const alumno   = document.getElementById("nombre-alumno").value;
+    const pregunta = document.getElementById("pregunta").value;
+    const respuesta= document.getElementById("respuesta-texto").value;
+    if (!alumno || !pregunta || !respuesta) { alert("Completá todos los campos"); return; }
+
+    // muestra spinner mientras espera
+    document.getElementById("spinner-texto").style.display = "inline";
+
+    const res  = await fetch("/calificar-texto", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ alumno, pregunta, respuesta })
+    });
+    const data = await res.json();
+
+    document.getElementById("spinner-texto").style.display = "none";
+    mostrarResultado(data);
+  }
+
+  async function iniciarGrabacion() {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks  = [];
+    mediaRecorder= new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(audioChunks, { type: "audio/webm" });
+      await enviarAudio(blob);
+    };
+    mediaRecorder.start();
+    document.getElementById("btn-grabar").disabled  = true;
+    document.getElementById("btn-detener").disabled = false;
+    const estado = document.getElementById("estado-grabacion");
+    estado.textContent = "🔴 Grabando...";
+    estado.className   = "grabando";
+  }
+
+  function detenerGrabacion() {
+    mediaRecorder.stop();
+    document.getElementById("btn-grabar").disabled  = false;
+    document.getElementById("btn-detener").disabled = true;
+    document.getElementById("estado-grabacion").textContent = "Procesando...";
+    document.getElementById("estado-grabacion").className   = "";
+    document.getElementById("spinner-audio").style.display  = "inline";
+  }
+
+  async function enviarAudio(blob) {
+    const alumno   = document.getElementById("nombre-alumno").value;
+    const pregunta = document.getElementById("pregunta").value;
+    if (!alumno || !pregunta) { alert("Completá nombre y pregunta antes de grabar"); return; }
+    const form = new FormData();
+    form.append("audio",    blob, "audio.webm");
+    form.append("alumno",   alumno);
+    form.append("pregunta", pregunta);
+    const res  = await fetch("/calificar-audio", { method: "POST", body: form });
+    const data = await res.json();
+    document.getElementById("spinner-audio").style.display = "none";
+    document.getElementById("estado-grabacion").textContent = "Listo para grabar";
+    mostrarResultado(data);
+  }
+
+  function mostrarResultado(data) {
+    const div = document.getElementById("resultado");
+    div.style.display = "block";
+    document.getElementById("puntaje-texto").textContent =
+      `${data.puntaje_obtenido} / ${data.puntaje_maximo} — ${data.pregunta}`;
+
+    // muestra retroalimentación si existe
+    const retro = document.getElementById("retro-texto");
+    retro.textContent = data.retroalimentacion
+      ? `💬 ${data.retroalimentacion}`
+      : "";
+
+    const trans = document.getElementById("transcripcion-texto");
+    trans.textContent = data.transcripcion
+      ? `📝 Whisper entendió: "${data.transcripcion}"`
+      : "";
+  }
+
+async function cargarResultados() {
+  const res   = await fetch("/resultados");
+  const datos = await res.json();
+  const tbody = document.getElementById("tabla-resultados");
+
+  if (datos.length === 0) {
+    tbody.innerHTML = "<tr><td colspan='5' style='color:#aaa;'>Sin resultados aún</td></tr>";
+    return;
+  }
+
+  const totales = {};
+  let filas = "";
+
+  datos.forEach(r => {
+    if (!totales[r.alumno]) totales[r.alumno] = { obtenido: 0, maximo: 0 };
+
+    if (r.tipo === "informe_pdf") {
+      // resultado de PDF: una fila por criterio
+      r.criterios.forEach(c => {
+        totales[r.alumno].obtenido += c.puntaje_obtenido;
+        totales[r.alumno].maximo   += c.puntaje_maximo;
+        filas += `
+          <tr>
+            <td>${r.alumno} <span style="font-size:0.75rem;color:#aaa;">(PDF)</span></td>
+            <td>${c.criterio}</td>
+            <td><strong>${c.puntaje_obtenido}</strong></td>
+            <td>${c.puntaje_maximo}</td>
+            <td style="font-size:0.85rem;color:#555;">${c.retroalimentacion || "—"}</td>
+          </tr>`;
+      });
+    } else {
+      // resultado de texto o audio: una fila normal
+      totales[r.alumno].obtenido += r.puntaje_obtenido;
+      totales[r.alumno].maximo   += r.puntaje_maximo;
+      filas += `
+        <tr>
+          <td>${r.alumno}</td>
+          <td>${r.pregunta}</td>
+          <td><strong>${r.puntaje_obtenido}</strong></td>
+          <td>${r.puntaje_maximo}</td>
+          <td style="font-size:0.85rem;color:#555;">${r.retroalimentacion || "—"}</td>
+        </tr>`;
+    }
+  });
+
+  // filas de total por alumno
+  filas += Object.entries(totales).map(([alumno, t]) => `
+    <tr class="total-row">
+      <td>${alumno}</td>
+      <td>TOTAL</td>
+      <td>${t.obtenido}</td>
+      <td>${t.maximo}</td>
+      <td>—</td>
+    </tr>
+  `).join("");
+
+  tbody.innerHTML = filas;
+}
+
+  // limpia resultados.json y resetea la tabla
+  async function limpiarResultados() {
+    if (!confirm("¿Seguro que querés borrar todos los resultados?")) return;
+    await fetch("/limpiar-resultados", { method: "POST" });
+    document.getElementById("tabla-resultados").innerHTML =
+      "<tr><td colspan='5' style='color:#aaa;'>Sesión reiniciada</td></tr>";
+  }
+  
+  // ── Calificar informe PDF ──
+async function calificarPDF() {
+  const alumno = document.getElementById("nombre-alumno-pdf").value;
+  const archivo = document.getElementById("archivo-pdf").files[0];
+
+  if (!alumno)  { alert("Escribí el nombre del alumno"); return; }
+  if (!archivo) { alert("Seleccioná un archivo PDF");    return; }
+
+  document.getElementById("spinner-pdf").style.display = "inline";
+  document.getElementById("resultado-pdf").style.display = "none";
+
+  const form = new FormData();
+  form.append("pdf",    archivo);
+  form.append("alumno", alumno);
+
+  const res  = await fetch("/calificar-pdf", { method: "POST", body: form });
+  const data = await res.json();
+
+  document.getElementById("spinner-pdf").style.display = "none";
+
+  if (data.error) { alert("Error: " + data.error); return; }
+
+  // muestra cada criterio con su puntaje y retroalimentación
+  const contenedor = document.getElementById("criterios-pdf");
+  contenedor.innerHTML = data.criterios.map(c => `
+    <div style="margin-bottom:1rem; padding:0.8rem; background:#eaf4fb;
+                border-radius:8px; border-left:4px solid #3498db;">
+      <strong>${c.criterio}</strong>
+      <span style="float:right; font-size:1.1rem; font-weight:700; color:#2980b9;">
+        ${c.puntaje_obtenido} / ${c.puntaje_maximo}
+      </span>
+      <div style="margin-top:0.4rem; font-size:0.85rem; color:#555;
+                  background:#fef9e7; padding:0.5rem; border-radius:4px;
+                  border-left:3px solid #f1c40f;">
+        💬 ${c.retroalimentacion}
+      </div>
+    </div>
+  `).join("");
+
+  document.getElementById("total-pdf").textContent =
+    `Total: ${data.total_obtenido} / ${data.total_maximo}`;
+
+  document.getElementById("resultado-pdf").style.display = "block";
+}
+// ── Cargar rúbrica IEEE (independiente de la Sección 1) ──
+async function cargarRubricaIEEE() {
+  const archivo = document.getElementById("archivo-rubrica-ieee").files[0];
+  if (!archivo) { alert("Seleccioná un archivo .md primero"); return; }
+
+  const form = new FormData();
+  form.append("rubrica", archivo);
+
+  const res  = await fetch("/cargar-rubrica-ieee", { method: "POST", body: form });
+  const data = await res.json();
+
+  const estado = document.getElementById("estado-rubrica-ieee");
+  if (data.ok) {
+    estado.textContent = "✅ " + archivo.name;
+    estado.className = "ok";
+  } else {
+    estado.textContent = "❌ " + data.error;
+    estado.className = "err";
+  }
+}
+</script>
+</body>
+</html>
