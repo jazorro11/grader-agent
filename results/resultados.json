@@ -349,5 +349,31 @@
     "retroalimentacion": "El alumno propuso tipos de gráficas, pero no justificó su elección con base en Knaflic ni definió la Tríada. Faltó aplicar principios Gestalt y explicar la carga cognitiva.",
     "alumno": "Fredy Enrique Arias ",
     "transcripcion": "los riesgos que se pueden... punto D para el usuario la gráfica de barras vertical porque puede presentar los resultados y tener el ingreso y egreso que tuvieron en el año también usaría la gráfica de aros para tener resultados de la que se entiende cuando puedan cambiar de ciudad"
+  },
+  {
+    "alumno": "julio",
+    "tipo": "informe_pdf",
+    "criterios": [
+      {
+        "criterio": "Resultados y Análisis Técnico",
+        "puntaje_obtenido": 0,
+        "puntaje_maximo": 0,
+        "retroalimentacion": "El criterio 'Resultados y Análisis Técnico' no está incluido en la rúbrica proporcionada, por lo tanto, no se puede asignar un puntaje basado en los criterios disponibles."
+      },
+      {
+        "criterio": "Estructura e Hilo Conductor",
+        "puntaje_obtenido": 0,
+        "puntaje_maximo": 10,
+        "retroalimentacion": "El criterio 'Estructura e Hilo Conductor' no está especificado en la rúbrica proporcionada, por lo tanto, no se puede asignar un puntaje basado en los criterios de evaluación disponibles."
+      },
+      {
+        "criterio": "Formato IEEE e Imágenes",
+        "puntaje_obtenido": 0,
+        "puntaje_maximo": 0,
+        "retroalimentacion": "El criterio de Formato IEEE e Imágenes no está contemplado en la rúbrica proporcionada, por lo tanto, no se puede asignar un puntaje para este aspecto."
+      }
+    ],
+    "total_obtenido": 0,
+    "total_maximo": 10
   }
 ]

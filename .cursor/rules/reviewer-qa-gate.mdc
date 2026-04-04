@@ -1,5 +1,5 @@
 ---
-description: Toda feature o fix de bug debe pasar por revisión (revisor-codigo) y QA (experto-qa) antes de darse por cerrada.
+description: Toda feature o fix de bug debe pasar por revisión (revisor-codigo) y QA (experto-qa) antes de darse por cerrada. Las features UI siguen antes experto-web-design.
 alwaysApply: true
 ---
 
@@ -7,26 +7,33 @@ alwaysApply: true
 
 Para **cualquier nueva funcionalidad** o **arreglo de bug** (cambios de comportamiento, API, datos o seguridad), el trabajo no se considera terminado hasta completar **ambos** frentes: **revisión de código** y **QA con pruebas**.
 
+**Features con interfaz:** antes de implementar, aplica la regla **UI feature spec** (subagente **`experto-web-design`**) para obtener bloques lógicos; véase `.cursor/rules/ui-feature-spec-flow.mdc`.
+
 ## Flujo obligatorio
 
+0. **(Solo UI / web)** Especificación en bloques con **`experto-web-design`** cuando corresponda.  
 1. **Implementar** el cambio con el alcance mínimo necesario.
 2. **QA (`experto-qa`)**  
    - Añadir o actualizar **tests unitarios** que cubran el comportamiento nuevo o la regresión corregida (feliz, límites, error).  
+   - **Revisar y mejorar** el código de producción y de tests **sin alterar la funcionalidad** observable (legibilidad, nombres, estructura, duplicación evitable, claridad de aserciones y fixtures); cualquier cambio debe quedar respaldado por tests que sigan pasando.  
    - **Ejecutar** la suite de tests del proyecto y conservar la salida.  
    - **Resumir** resultado: pasó/falló, fallos concretos y próximos pasos (formato del subagente).
 3. **Revisor (`revisor-codigo`)**  
    - Revisar el diff/código tocado con foco en **calidad y seguridad**.  
-   - Entregar el **informe estructurado** (resumen ejecutivo, hallazgos por severidad, checklists, acciones prioritarias).
+   - **Proponer mejoras concretas** (o validar las ya aplicadas) que **no cambien el comportamiento** del producto: refactor seguro, consistencia de estilo, simplificación, riesgos de mantenimiento; si recomienda cambio de comportamiento, debe etiquetarlo explícitamente como tal y quedar fuera del cierre “solo mejora”.  
+   - Entregar el **informe estructurado** (resumen ejecutivo, hallazgos por severidad, checklists, acciones prioritarias), incluyendo cuando aplique una subsección breve **“Mejoras sin cambio funcional”** con acciones priorizadas.
 
-Orden recomendado: implementación → tests y ejecución → revisión sobre el conjunto (código + tests). Si la revisión exige cambios, repetir el paso 2 al menos en lo afectado.
+Orden recomendado: (si UI) especificación en bloques → implementación → tests y ejecución → revisión sobre el conjunto (código + tests). Si la revisión exige cambios, repetir el paso 2 al menos en lo afectado (numeración de pasos en este documento: 0 opcional UI, luego 1–3).
 
 ## Criterio de cierre
 
 - Tests relevantes existen y **pasan** (o queda documentado por qué no se pueden ejecutar aquí y qué comando validar en local/CI).  
-- Informe del **revisor** sin hallazgos **críticos** ni **altos** sin resolver; los demás deben estar explícitamente aceptados o en tarea de seguimiento.
+- **experto-qa** ha aplicado o dejado documentadas mejoras de calidad **sin cambio funcional** en el alcance tocado (o justifica por qué no hacía falta en el informe).  
+- Informe del **revisor** sin hallazgos **críticos** ni **altos** sin resolver; los demás deben estar explícitamente aceptados o en tarea de seguimiento; el informe incluye **mejoras sin cambio funcional** cuando el código lo permita (o indica explícitamente que no hay margen razonable).
 
 ## Cuando actúes como asistente en este repo
 
+- Para **features con UI**, **usa de forma proactiva** **`experto-web-design`** al inicio (o el formato de `.cursor/rules/ui-feature-spec-flow.mdc`) salvo que ya exista una especificación equivalente.  
 - Tras cambios de feature o bugfix, **usa de forma proactiva** los subagentes **`revisor-codigo`** y **`experto-qa`** (o aplica el mismo proceso y formato de salida si la UI no permite subagentes).  
 - No cierres la tarea en el mensaje final sin haber cubierto revisión + QA según lo anterior.
 
@@ -35,5 +42,5 @@ Orden recomendado: implementación → tests y ejecución → revisión sobre el
 "Cambio listo" sin tests nuevos/actualizados ni revisión de seguridad/calidad.
 
 # ✅ Correcto
-Código + tests ejecutados con resumen + revisión con informe y acciones cerradas o acordadas.
+Código mejorado en calidad sin cambiar comportamiento + tests ejecutados con resumen + revisión con informe (incl. mejoras sin cambio funcional) y acciones cerradas o acordadas.
 ```

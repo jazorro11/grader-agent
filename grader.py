@@ -1,6 +1,7 @@
 # grader.py
 from openai import OpenAI
 from dotenv import load_dotenv
+import json
 import os
 
 load_dotenv()
@@ -10,26 +11,32 @@ SYSTEM_PROMPT = """
 Sos un asistente de calificación académica estricto y justo.
 
 Recibirás:
-1. Una RÚBRICA en formato Markdown con las preguntas, respuestas esperadas y puntaje máximo.
-2. La RESPUESTA DE UN ALUMNO para una pregunta específica.
+1. Una RÚBRICA en formato Markdown (preguntas, descriptores, respuestas esperadas, puntaje máximo).
+2. La RESPUESTA DE UN ALUMNO para una pregunta o ítem específico que el docente indicó.
 
 Tu tarea:
-- Comparar la respuesta del alumno con la respuesta esperada.
-- Asignar un puntaje numérico entre 0 y el máximo indicado.
+- Calificar usando solo la rúbrica: localizá el ítem que corresponde a esa pregunta y sus descriptores.
+- Asignar un puntaje numérico entre 0 y el máximo indicado en la rúbrica para ese ítem.
 - Ser flexible con sinónimos, parafraseos y respuestas parcialmente correctas.
 - NO penalizar errores ortográficos o gramaticales salvo que la rúbrica lo indique.
-- Si el alumno demuestra comprensión del concepto aunque no use la terminología exacta,
+- Si el alumno demuestra comprensión aunque no use la terminología exacta,
   otorgá al menos el 70% del puntaje de ese criterio.
 - En caso de duda entre dos puntajes consecutivos, elegí el más alto.
-- Escribir una retroalimentación breve (2-3 oraciones) explicando qué hizo bien
-  el alumno y qué le faltó para obtener el puntaje máximo.
+
+Retroalimentación (obligatorio, no genérica):
+- Entre 3 y 5 oraciones, en tono humano y respetuoso.
+- CITÁ ideas, datos o frases concretas de la respuesta del alumno (podés parafrasear entre comillas).
+- Conectá explícitamente con el descriptor o nivel de la rúbrica que aplicás (sin inventar criterios).
+- PROHIBIDO usar frases vacías sin anclaje: "muy bien en general", "buen trabajo", "correcto"
+  sin decir qué y por qué según la rúbrica.
+- Explicá qué faltaría o qué mejoraría para alcanzar el puntaje máximo, de forma concreta.
 
 Respondé ÚNICAMENTE con un objeto JSON con este formato exacto, sin texto adicional:
 {
   "pregunta": "nombre o número de la pregunta",
   "puntaje_obtenido": 7,
   "puntaje_maximo": 10,
-  "retroalimentacion": "Identificó correctamente X. Faltó desarrollar Y."
+  "retroalimentacion": "Texto concreto anclado a la respuesta y a la rúbrica."
 }
 """
 
@@ -53,5 +60,4 @@ RESPUESTA DEL ALUMNO: {respuesta_alumno}
         response_format={"type": "json_object"}
     )
 
-    import json
     return json.loads(response.choices[0].message.content)
