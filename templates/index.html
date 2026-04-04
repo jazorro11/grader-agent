@@ -21,6 +21,32 @@
       margin-bottom: 1.5rem;
       box-shadow: 0 2px 8px rgba(0,0,0,0.07);
     }
+    .rubric-entregable-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    @media (max-width: 768px) {
+      .rubric-entregable-grid { grid-template-columns: 1fr; }
+    }
+    .zona {
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 10px;
+      border: 1px solid #e9ecef;
+    }
+    .zona h3 {
+      font-size: 0.95rem;
+      color: #2c3e50;
+      margin-bottom: 0.75rem;
+    }
+    .zona p.hint {
+      font-size: 0.8rem;
+      color: #6c757d;
+      margin-bottom: 0.6rem;
+      line-height: 1.35;
+    }
     input[type="text"], textarea {
       width: 100%;
       padding: 0.6rem 0.8rem;
@@ -55,11 +81,25 @@
     }
     .ok  { background: #d5f5e3; color: #1e8449; }
     .err { background: #fadbd8; color: #922b21; }
-    .audio-controles { display: flex; gap: 0.8rem; align-items: center; margin-bottom: 0.8rem; }
+    .audio-controles { display: flex; gap: 0.8rem; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; }
     #estado-grabacion { font-size: 0.85rem; color: #7f8c8d; }
     #estado-grabacion.grabando { color: #e74c3c; font-weight: 600; }
 
-    /* Resultado */
+    details.modo-item {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: #fafbfc;
+      border-radius: 10px;
+      border: 1px dashed #bdc3c7;
+    }
+    details.modo-item summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: #34495e;
+      padding: 0.35rem 0;
+    }
+    details.modo-item[open] summary { margin-bottom: 0.75rem; }
+
     #resultado {
       display: none;
       margin-top: 1rem;
@@ -80,14 +120,17 @@
     }
     #resultado .transcripcion { margin-top: 0.5rem; font-size: 0.85rem; color: #555; font-style: italic; }
 
-    /* Tabla */
+    #resultado-entregable {
+      display: none;
+      margin-top: 1rem;
+    }
+
     table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
     th { background: #2c3e50; color: white; padding: 0.6rem 0.8rem; text-align: left; }
     td { padding: 0.6rem 0.8rem; border-bottom: 1px solid #eee; }
     tr:hover td { background: #f8f9fa; }
     .total-row td { background: #eaf4fb; font-weight: 700; }
 
-    /* Spinner */
     .spinner {
       display: none;
       margin-left: 0.5rem;
@@ -100,102 +143,105 @@
 
 <h1>Agente Calificador</h1>
 
-<!-- SECCIÓN 1: Cargar rúbrica -->
+<!-- Bloque único: rúbrica + entregable -->
 <div class="card">
-  <h2>1. Cargar rúbrica</h2>
-  <input type="file" id="archivo-rubrica" accept=".md">
-  <button class="btn-primary" onclick="cargarRubrica()">Cargar</button>
-  <span id="estado-rubrica">Sin rúbrica cargada</span>
-</div>
+  <h2>1. Rúbrica y entregable del alumno</h2>
+  <p style="font-size:0.88rem;color:#6c757d;margin-bottom:1rem;">
+    Cargá la rúbrica (.md) y el PDF del estudiante. La opción principal es evaluar el entregable completo según cada criterio de la rúbrica.
+  </p>
 
-<!-- SECCIÓN 2: Calificar alumno -->
-<div class="card">
-  <h2>2. Calificar respuesta</h2>
-  <input type="text" id="nombre-alumno" placeholder="Nombre del alumno">
-  <input type="text" id="pregunta"      placeholder="Pregunta (ej: Parte A)">
-
-  <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
-    <button class="btn-secondary" onclick="mostrarTab('texto')">✏️ Texto</button>
-    <button class="btn-secondary" onclick="mostrarTab('audio')">🎙️ Audio</button>
-  </div>
-
-  <!-- Panel texto -->
-  <div id="panel-texto">
-    <textarea id="respuesta-texto" placeholder="Escribí la respuesta del alumno acá..."></textarea>
-    <button class="btn-success" onclick="calificarTexto()">Calificar</button>
-    <span class="spinner" id="spinner-texto">⏳ Calificando...</span>
-  </div>
-
-  <!-- Panel audio -->
-  <div id="panel-audio" style="display:none;">
-    <div class="audio-controles">
-      <button class="btn-danger"    id="btn-grabar"  onclick="iniciarGrabacion()">⏺ Grabar</button>
-      <button class="btn-secondary" id="btn-detener" onclick="detenerGrabacion()" disabled>⏹ Detener y calificar</button>
-      <span id="estado-grabacion">Listo para grabar</span>
+  <div class="rubric-entregable-grid">
+    <div class="zona">
+      <h3>Rúbrica</h3>
+      <p class="hint">Taller, informe, quiz, parcial u otra evaluación — siempre en Markdown (.md).</p>
+      <input type="file" id="archivo-rubrica" accept=".md">
+      <button type="button" class="btn-primary" onclick="cargarRubrica()">Cargar rúbrica</button>
+      <div id="estado-rubrica" class="err">Sin rúbrica cargada</div>
     </div>
-    <span class="spinner" id="spinner-audio">⏳ Transcribiendo y calificando...</span>
+    <div class="zona">
+      <h3>Entregable del alumno</h3>
+      <p class="hint">PDF del estudiante (máx. 4 páginas). Se evalúa el texto extraído del archivo.</p>
+      <input type="text" id="nombre-alumno-entregable" placeholder="Nombre del alumno">
+      <input type="file" id="archivo-pdf-entregable" accept=".pdf">
+      <button type="button" class="btn-success" onclick="calificarEntregable()">Evaluar entregable con la rúbrica</button>
+      <span class="spinner" id="spinner-entregable">⏳ Extrayendo y calificando...</span>
+    </div>
   </div>
 
-  <!-- Resultado -->
-  <div id="resultado">
-    <div class="puntaje"       id="puntaje-texto"></div>
-    <div class="retro"         id="retro-texto"></div>
-    <div class="transcripcion" id="transcripcion-texto"></div>
+  <div id="resultado-entregable">
+    <div id="criterios-entregable"></div>
+    <div id="total-entregable" style="font-size:1.4rem;font-weight:700;color:#2980b9;margin-top:1rem;"></div>
   </div>
+
+  <details class="modo-item">
+    <summary>Calificar respuesta (pregunta por pregunta)</summary>
+    <p style="font-size:0.85rem;color:#6c757d;margin-bottom:0.75rem;">
+      Usá esta opción cuando necesites ingresar una respuesta a la vez (texto o audio con transcripción Whisper).
+    </p>
+    <input type="text" id="nombre-alumno" placeholder="Nombre del alumno">
+    <input type="text" id="pregunta" placeholder="Pregunta o ítem (ej: Parte A, Criterio 2)">
+
+    <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+      <button type="button" class="btn-secondary" onclick="mostrarTab('texto')">Texto</button>
+      <button type="button" class="btn-secondary" onclick="mostrarTab('audio')">Audio (Whisper)</button>
+    </div>
+
+    <div id="panel-texto">
+      <textarea id="respuesta-texto" placeholder="Escribí la respuesta del alumno acá..."></textarea>
+      <button type="button" class="btn-success" onclick="calificarTexto()">Calificar</button>
+      <span class="spinner" id="spinner-texto">⏳ Calificando...</span>
+    </div>
+
+    <div id="panel-audio" style="display:none;">
+      <div class="audio-controles">
+        <button type="button" class="btn-danger" id="btn-grabar" onclick="iniciarGrabacion()">Grabar</button>
+        <button type="button" class="btn-secondary" id="btn-detener" onclick="detenerGrabacion()" disabled>Detener y calificar</button>
+        <span id="estado-grabacion">Listo para grabar</span>
+      </div>
+      <span class="spinner" id="spinner-audio">⏳ Transcribiendo y calificando...</span>
+    </div>
+
+    <div id="resultado">
+      <div class="puntaje" id="puntaje-texto"></div>
+      <div class="retro" id="retro-texto"></div>
+      <div class="transcripcion" id="transcripcion-texto"></div>
+    </div>
+  </details>
 </div>
 
-<!-- SECCIÓN 2B: Calificar informe IEEE (PDF) -->
+<!-- Resultados acumulados -->
 <div class="card">
-  <h2>2B. Calificar informe IEEE (PDF)</h2>
-
-  <!-- Carga de rúbrica propia, independiente de la Sección 1 -->
-  <div style="margin-bottom:1rem; padding:0.8rem; background:#f8f9fa; border-radius:8px;">
-    <strong style="font-size:0.9rem;">Rúbrica IEEE</strong><br><br>
-    <input type="file" id="archivo-rubrica-ieee" accept=".md">
-    <button class="btn-primary" onclick="cargarRubricaIEEE()">Cargar rúbrica</button>
-    <span id="estado-rubrica-ieee" style="font-size:0.85rem; margin-left:0.5rem;">Sin rúbrica IEEE cargada</span>
-  </div>
-
-  <input type="text" id="nombre-alumno-pdf" placeholder="Nombre del alumno">
-  <input type="file" id="archivo-pdf" accept=".pdf" style="margin-bottom:0.8rem;"><br>
-  <button class="btn-success" onclick="calificarPDF()">Calificar informe</button>
-  <span class="spinner" id="spinner-pdf">⏳ Extrayendo y calificando...</span>
-
-  <!-- Resultado por criterios -->
-  <div id="resultado-pdf" style="display:none; margin-top:1rem;">
-    <div id="criterios-pdf"></div>
-    <div id="total-pdf" style="font-size:1.4rem; font-weight:700; color:#2980b9; margin-top:1rem;"></div>
-  </div>
-</div>
-</div>
-
-
-<!-- SECCIÓN 3: Resultados -->
-<div class="card">
-  <h2>3. Resultados acumulados</h2>
-  <div style="display:flex; gap:0.8rem; margin-bottom:1rem;">
-    <button class="btn-primary" onclick="cargarResultados()">🔄 Actualizar tabla</button>
-    <button class="btn-warning" onclick="limpiarResultados()">🗑️ Nueva sesión</button>
+  <h2>2. Resultados acumulados</h2>
+  <div style="display:flex;gap:0.8rem;margin-bottom:1rem;flex-wrap:wrap;">
+    <button type="button" class="btn-primary" onclick="cargarResultados()">Actualizar tabla</button>
+    <button type="button" class="btn-warning" onclick="limpiarResultados()">Nueva sesión</button>
   </div>
   <table>
     <thead>
       <tr>
         <th>Alumno</th>
-        <th>Pregunta</th>
+        <th>Pregunta / criterio</th>
         <th>Puntaje</th>
         <th>Máximo</th>
         <th>Retroalimentación</th>
       </tr>
     </thead>
     <tbody id="tabla-resultados">
-      <tr><td colspan="5" style="color:#aaa;">Hacé clic en "Actualizar tabla"</td></tr>
+      <tr><td colspan="5" style="color:#aaa;">Hacé clic en «Actualizar tabla»</td></tr>
     </tbody>
   </table>
 </div>
 
 <script>
+  function escapeHtml(value) {
+    if (value === null || value === undefined) return "";
+    const div = document.createElement("div");
+    div.textContent = String(value);
+    return div.innerHTML;
+  }
+
   let mediaRecorder = null;
-  let audioChunks   = [];
+  let audioChunks = [];
 
   function mostrarTab(tab) {
     document.getElementById("panel-texto").style.display = tab === "texto" ? "block" : "none";
@@ -207,28 +253,66 @@
     if (!archivo) { alert("Seleccioná un archivo .md primero"); return; }
     const form = new FormData();
     form.append("rubrica", archivo);
-    const res  = await fetch("/cargar-rubrica", { method: "POST", body: form });
+    const res = await fetch("/cargar-rubrica", { method: "POST", body: form });
     const data = await res.json();
     const estado = document.getElementById("estado-rubrica");
     if (data.ok) {
       estado.textContent = "✅ " + archivo.name + " cargada";
       estado.className = "ok";
     } else {
-      estado.textContent = "❌ " + data.error;
+      estado.textContent = "❌ " + (data.error || "Error");
       estado.className = "err";
     }
   }
 
+  async function calificarEntregable() {
+    const alumno = document.getElementById("nombre-alumno-entregable").value.trim();
+    const archivo = document.getElementById("archivo-pdf-entregable").files[0];
+    if (!alumno) { alert("Escribí el nombre del alumno"); return; }
+    if (!archivo) { alert("Seleccioná un archivo PDF"); return; }
+
+    document.getElementById("spinner-entregable").style.display = "inline";
+    document.getElementById("resultado-entregable").style.display = "none";
+
+    const form = new FormData();
+    form.append("pdf", archivo);
+    form.append("alumno", alumno);
+
+    const res = await fetch("/calificar-entregable", { method: "POST", body: form });
+    const data = await res.json();
+
+    document.getElementById("spinner-entregable").style.display = "none";
+
+    if (data.error) { alert("Error: " + data.error); return; }
+
+    const contenedor = document.getElementById("criterios-entregable");
+    contenedor.innerHTML = (data.criterios || []).map(function (c) {
+      return (
+        '<div style="margin-bottom:1rem;padding:0.8rem;background:#eaf4fb;border-radius:8px;border-left:4px solid #3498db;">' +
+        "<strong>" + escapeHtml(c.criterio) + "</strong>" +
+        '<span style="float:right;font-size:1.1rem;font-weight:700;color:#2980b9;">' +
+        escapeHtml(c.puntaje_obtenido) + " / " + escapeHtml(c.puntaje_maximo) +
+        "</span>" +
+        '<div style="margin-top:0.4rem;font-size:0.85rem;color:#555;background:#fef9e7;padding:0.5rem;border-radius:4px;border-left:3px solid #f1c40f;">' +
+        "💬 " + escapeHtml(c.retroalimentacion) +
+        "</div></div>"
+      );
+    }).join("");
+
+    document.getElementById("total-entregable").textContent =
+      "Total: " + data.total_obtenido + " / " + data.total_maximo;
+    document.getElementById("resultado-entregable").style.display = "block";
+  }
+
   async function calificarTexto() {
-    const alumno   = document.getElementById("nombre-alumno").value;
+    const alumno = document.getElementById("nombre-alumno").value;
     const pregunta = document.getElementById("pregunta").value;
-    const respuesta= document.getElementById("respuesta-texto").value;
+    const respuesta = document.getElementById("respuesta-texto").value;
     if (!alumno || !pregunta || !respuesta) { alert("Completá todos los campos"); return; }
 
-    // muestra spinner mientras espera
     document.getElementById("spinner-texto").style.display = "inline";
 
-    const res  = await fetch("/calificar-texto", {
+    const res = await fetch("/calificar-texto", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ alumno, pregunta, respuesta })
@@ -236,199 +320,139 @@
     const data = await res.json();
 
     document.getElementById("spinner-texto").style.display = "none";
+    if (!res.ok || data.error) {
+      alert(data.error || "No se pudo calificar");
+      return;
+    }
     mostrarResultado(data);
   }
 
   async function iniciarGrabacion() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioChunks  = [];
-    mediaRecorder= new MediaRecorder(stream);
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-    mediaRecorder.onstop = async () => {
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = function (e) { audioChunks.push(e.data); };
+    mediaRecorder.onstop = async function () {
       const blob = new Blob(audioChunks, { type: "audio/webm" });
       await enviarAudio(blob);
     };
     mediaRecorder.start();
-    document.getElementById("btn-grabar").disabled  = true;
+    document.getElementById("btn-grabar").disabled = true;
     document.getElementById("btn-detener").disabled = false;
     const estado = document.getElementById("estado-grabacion");
     estado.textContent = "🔴 Grabando...";
-    estado.className   = "grabando";
+    estado.className = "grabando";
   }
 
   function detenerGrabacion() {
     mediaRecorder.stop();
-    document.getElementById("btn-grabar").disabled  = false;
+    document.getElementById("btn-grabar").disabled = false;
     document.getElementById("btn-detener").disabled = true;
     document.getElementById("estado-grabacion").textContent = "Procesando...";
-    document.getElementById("estado-grabacion").className   = "";
-    document.getElementById("spinner-audio").style.display  = "inline";
+    document.getElementById("estado-grabacion").className = "";
+    document.getElementById("spinner-audio").style.display = "inline";
   }
 
   async function enviarAudio(blob) {
-    const alumno   = document.getElementById("nombre-alumno").value;
+    const alumno = document.getElementById("nombre-alumno").value;
     const pregunta = document.getElementById("pregunta").value;
     if (!alumno || !pregunta) { alert("Completá nombre y pregunta antes de grabar"); return; }
     const form = new FormData();
-    form.append("audio",    blob, "audio.webm");
-    form.append("alumno",   alumno);
+    form.append("audio", blob, "audio.webm");
+    form.append("alumno", alumno);
     form.append("pregunta", pregunta);
-    const res  = await fetch("/calificar-audio", { method: "POST", body: form });
+    const res = await fetch("/calificar-audio", { method: "POST", body: form });
     const data = await res.json();
     document.getElementById("spinner-audio").style.display = "none";
     document.getElementById("estado-grabacion").textContent = "Listo para grabar";
+    if (!res.ok || data.error) {
+      alert(data.error || "No se pudo calificar el audio");
+      return;
+    }
     mostrarResultado(data);
   }
 
   function mostrarResultado(data) {
+    if (data.error) {
+      alert(data.error);
+      return;
+    }
     const div = document.getElementById("resultado");
     div.style.display = "block";
     document.getElementById("puntaje-texto").textContent =
-      `${data.puntaje_obtenido} / ${data.puntaje_maximo} — ${data.pregunta}`;
+      data.puntaje_obtenido + " / " + data.puntaje_maximo + " — " + (data.pregunta || "");
 
-    // muestra retroalimentación si existe
     const retro = document.getElementById("retro-texto");
-    retro.textContent = data.retroalimentacion
-      ? `💬 ${data.retroalimentacion}`
-      : "";
+    retro.textContent = data.retroalimentacion ? ("💬 " + data.retroalimentacion) : "";
 
     const trans = document.getElementById("transcripcion-texto");
     trans.textContent = data.transcripcion
-      ? `📝 Whisper entendió: "${data.transcripcion}"`
+      ? ('📝 Whisper entendió: "' + data.transcripcion + '"')
       : "";
   }
 
-async function cargarResultados() {
-  const res   = await fetch("/resultados");
-  const datos = await res.json();
-  const tbody = document.getElementById("tabla-resultados");
-
-  if (datos.length === 0) {
-    tbody.innerHTML = "<tr><td colspan='5' style='color:#aaa;'>Sin resultados aún</td></tr>";
-    return;
+  function esResultadoPorCriterios(r) {
+    return r.tipo === "entregable_pdf" || r.tipo === "informe_pdf";
   }
 
-  const totales = {};
-  let filas = "";
+  async function cargarResultados() {
+    const res = await fetch("/resultados");
+    const datos = await res.json();
+    const tbody = document.getElementById("tabla-resultados");
 
-  datos.forEach(r => {
-    if (!totales[r.alumno]) totales[r.alumno] = { obtenido: 0, maximo: 0 };
-
-    if (r.tipo === "informe_pdf") {
-      // resultado de PDF: una fila por criterio
-      r.criterios.forEach(c => {
-        totales[r.alumno].obtenido += c.puntaje_obtenido;
-        totales[r.alumno].maximo   += c.puntaje_maximo;
-        filas += `
-          <tr>
-            <td>${r.alumno} <span style="font-size:0.75rem;color:#aaa;">(PDF)</span></td>
-            <td>${c.criterio}</td>
-            <td><strong>${c.puntaje_obtenido}</strong></td>
-            <td>${c.puntaje_maximo}</td>
-            <td style="font-size:0.85rem;color:#555;">${c.retroalimentacion || "—"}</td>
-          </tr>`;
-      });
-    } else {
-      // resultado de texto o audio: una fila normal
-      totales[r.alumno].obtenido += r.puntaje_obtenido;
-      totales[r.alumno].maximo   += r.puntaje_maximo;
-      filas += `
-        <tr>
-          <td>${r.alumno}</td>
-          <td>${r.pregunta}</td>
-          <td><strong>${r.puntaje_obtenido}</strong></td>
-          <td>${r.puntaje_maximo}</td>
-          <td style="font-size:0.85rem;color:#555;">${r.retroalimentacion || "—"}</td>
-        </tr>`;
+    if (datos.length === 0) {
+      tbody.innerHTML = "<tr><td colspan='5' style='color:#aaa;'>Sin resultados aún</td></tr>";
+      return;
     }
-  });
 
-  // filas de total por alumno
-  filas += Object.entries(totales).map(([alumno, t]) => `
-    <tr class="total-row">
-      <td>${alumno}</td>
-      <td>TOTAL</td>
-      <td>${t.obtenido}</td>
-      <td>${t.maximo}</td>
-      <td>—</td>
-    </tr>
-  `).join("");
+    const totales = {};
+    let filas = "";
 
-  tbody.innerHTML = filas;
-}
+    datos.forEach(function (r) {
+      if (!totales[r.alumno]) totales[r.alumno] = { obtenido: 0, maximo: 0 };
 
-  // limpia resultados.json y resetea la tabla
+      if (esResultadoPorCriterios(r)) {
+        var labelPdf = r.tipo === "entregable_pdf" ? "Entregable" : "PDF";
+        (r.criterios || []).forEach(function (c) {
+          totales[r.alumno].obtenido += c.puntaje_obtenido;
+          totales[r.alumno].maximo += c.puntaje_maximo;
+          filas +=
+            "<tr><td>" + escapeHtml(r.alumno) + ' <span style="font-size:0.75rem;color:#aaa;">(' + labelPdf + ")</span></td>" +
+            "<td>" + escapeHtml(c.criterio) + "</td>" +
+            "<td><strong>" + escapeHtml(c.puntaje_obtenido) + "</strong></td>" +
+            "<td>" + escapeHtml(c.puntaje_maximo) + "</td>" +
+            "<td style='font-size:0.85rem;color:#555;'>" + escapeHtml(c.retroalimentacion || "—") + "</td></tr>";
+        });
+      } else {
+        totales[r.alumno].obtenido += r.puntaje_obtenido;
+        totales[r.alumno].maximo += r.puntaje_maximo;
+        filas +=
+          "<tr><td>" + escapeHtml(r.alumno) + "</td>" +
+          "<td>" + escapeHtml(r.pregunta) + "</td>" +
+          "<td><strong>" + escapeHtml(r.puntaje_obtenido) + "</strong></td>" +
+          "<td>" + escapeHtml(r.puntaje_maximo) + "</td>" +
+          "<td style='font-size:0.85rem;color:#555;'>" + escapeHtml(r.retroalimentacion || "—") + "</td></tr>";
+      }
+    });
+
+    filas += Object.entries(totales).map(function (entry) {
+      var alumno = entry[0];
+      var t = entry[1];
+      return (
+        "<tr class='total-row'><td>" + escapeHtml(alumno) + "</td><td>TOTAL</td>" +
+        "<td>" + escapeHtml(t.obtenido) + "</td><td>" + escapeHtml(t.maximo) + "</td><td>—</td></tr>"
+      );
+    }).join("");
+
+    tbody.innerHTML = filas;
+  }
+
   async function limpiarResultados() {
     if (!confirm("¿Seguro que querés borrar todos los resultados?")) return;
     await fetch("/limpiar-resultados", { method: "POST" });
     document.getElementById("tabla-resultados").innerHTML =
       "<tr><td colspan='5' style='color:#aaa;'>Sesión reiniciada</td></tr>";
   }
-  
-  // ── Calificar informe PDF ──
-async function calificarPDF() {
-  const alumno = document.getElementById("nombre-alumno-pdf").value;
-  const archivo = document.getElementById("archivo-pdf").files[0];
-
-  if (!alumno)  { alert("Escribí el nombre del alumno"); return; }
-  if (!archivo) { alert("Seleccioná un archivo PDF");    return; }
-
-  document.getElementById("spinner-pdf").style.display = "inline";
-  document.getElementById("resultado-pdf").style.display = "none";
-
-  const form = new FormData();
-  form.append("pdf",    archivo);
-  form.append("alumno", alumno);
-
-  const res  = await fetch("/calificar-pdf", { method: "POST", body: form });
-  const data = await res.json();
-
-  document.getElementById("spinner-pdf").style.display = "none";
-
-  if (data.error) { alert("Error: " + data.error); return; }
-
-  // muestra cada criterio con su puntaje y retroalimentación
-  const contenedor = document.getElementById("criterios-pdf");
-  contenedor.innerHTML = data.criterios.map(c => `
-    <div style="margin-bottom:1rem; padding:0.8rem; background:#eaf4fb;
-                border-radius:8px; border-left:4px solid #3498db;">
-      <strong>${c.criterio}</strong>
-      <span style="float:right; font-size:1.1rem; font-weight:700; color:#2980b9;">
-        ${c.puntaje_obtenido} / ${c.puntaje_maximo}
-      </span>
-      <div style="margin-top:0.4rem; font-size:0.85rem; color:#555;
-                  background:#fef9e7; padding:0.5rem; border-radius:4px;
-                  border-left:3px solid #f1c40f;">
-        💬 ${c.retroalimentacion}
-      </div>
-    </div>
-  `).join("");
-
-  document.getElementById("total-pdf").textContent =
-    `Total: ${data.total_obtenido} / ${data.total_maximo}`;
-
-  document.getElementById("resultado-pdf").style.display = "block";
-}
-// ── Cargar rúbrica IEEE (independiente de la Sección 1) ──
-async function cargarRubricaIEEE() {
-  const archivo = document.getElementById("archivo-rubrica-ieee").files[0];
-  if (!archivo) { alert("Seleccioná un archivo .md primero"); return; }
-
-  const form = new FormData();
-  form.append("rubrica", archivo);
-
-  const res  = await fetch("/cargar-rubrica-ieee", { method: "POST", body: form });
-  const data = await res.json();
-
-  const estado = document.getElementById("estado-rubrica-ieee");
-  if (data.ok) {
-    estado.textContent = "✅ " + archivo.name;
-    estado.className = "ok";
-  } else {
-    estado.textContent = "❌ " + data.error;
-    estado.className = "err";
-  }
-}
 </script>
 </body>
 </html>

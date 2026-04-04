@@ -3,12 +3,20 @@
 # las procesa usando grader.py y transcriber.py, y devuelve resultados.
 
 from flask import Flask, request, jsonify, render_template
-from pdf_grader import calificar_informe_completo, extraer_texto_pdf
+from pdf_grader import calificar_entregable_pdf
 from grader import calificar_respuesta      # módulo para calificar con GPT-4o
 from transcriber import transcribir_audio   # módulo para transcribir con Whisper
-import os, json
+import json
+import os
 
 app = Flask(__name__)  # crea la aplicación Flask. __name__ le dice a Flask dónde está el proyecto.
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # límite de subida (audio/PDF/rúbrica)
+
+
+@app.errorhandler(413)
+def _payload_demasiado_grande(_e):
+    return jsonify({"error": "El archivo supera el tamaño máximo permitido (16 MB)"}), 413
+
 
 # Carpetas donde se guardan los archivos
 RUBRICS_DIR = "rubrics"   # aquí se guarda el .md con los criterios
@@ -28,7 +36,9 @@ def index():
 # y la respuesta escrita. Flask lo pasa a GPT-4o y devuelve el puntaje.
 @app.route("/calificar-texto", methods=["POST"])
 def calificar_texto():
-    data = request.get_json()               # lee el cuerpo JSON de la petición
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({"error": "Se esperaba un cuerpo JSON válido"}), 400
     pregunta      = data.get("pregunta", "")
     respuesta     = data.get("respuesta", "")
     nombre_alumno = data.get("alumno", "Alumno")
@@ -108,46 +118,33 @@ def cargar_rubrica():
     archivo = request.files.get("rubrica")
     if not archivo:
         return jsonify({"error": "No se recibió archivo"}), 400
-    contenido = archivo.read().decode("utf-8")
+    contenido, resp_err = _contenido_rubrica_desde_upload(archivo)
+    if resp_err is not None:
+        return resp_err
     ruta = os.path.join(RUBRICS_DIR, "rubrica_activa.md")
     with open(ruta, "w", encoding="utf-8") as f:
         f.write(contenido)
     return jsonify({"ok": True, "mensaje": "Rúbrica de parcial cargada"})
 
 
-# ── RUTA: Cargar rúbrica exclusiva para informes IEEE ─────────
-@app.route("/cargar-rubrica-ieee", methods=["POST"])
-def cargar_rubrica_ieee():
-    archivo = request.files.get("rubrica")
-    if not archivo:
-        return jsonify({"error": "No se recibió archivo"}), 400
-    contenido = archivo.read().decode("utf-8")
-    # se guarda en un archivo separado, independiente del parcial
-    ruta = os.path.join(RUBRICS_DIR, "rubrica_ieee_activa.md")
-    with open(ruta, "w", encoding="utf-8") as f:
-        f.write(contenido)
-    return jsonify({"ok": True, "mensaje": "Rúbrica IEEE cargada"})
-
-
-# ── RUTA: Calificar informe PDF ───────────────────────────────
-@app.route("/calificar-pdf", methods=["POST"])
-def calificar_pdf():
-    pdf           = request.files.get("pdf")
+# ── RUTA: Calificar entregable completo (PDF) con la rúbrica activa ──
+@app.route("/calificar-entregable", methods=["POST"])
+def calificar_entregable():
+    pdf = request.files.get("pdf")
     nombre_alumno = request.form.get("alumno", "Alumno")
 
     if not pdf:
         return jsonify({"error": "No se recibió PDF"}), 400
 
-    # usa exclusivamente la rúbrica IEEE, no la del parcial
-    rubrica = _leer_rubrica_ieee()
+    rubrica = _leer_rubrica_activa()
     if not rubrica:
-        return jsonify({"error": "Primero cargá una rúbrica IEEE en la Sección 2B"}), 400
+        return jsonify({"error": "Primero cargá una rúbrica (.md) en este bloque"}), 400
 
-    ruta_pdf = os.path.join(RESULTS_DIR, "temp_informe.pdf")
+    ruta_pdf = os.path.join(RESULTS_DIR, "temp_entregable.pdf")
     pdf.save(ruta_pdf)
 
     try:
-        resultado = calificar_informe_completo(rubrica, ruta_pdf, nombre_alumno)
+        resultado = calificar_entregable_pdf(rubrica, ruta_pdf, nombre_alumno)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
@@ -156,6 +153,14 @@ def calificar_pdf():
 
 
 # ── HELPERS (funciones internas, no son rutas web) ────────────
+
+def _contenido_rubrica_desde_upload(archivo):
+    """Devuelve (texto, None) si OK, o (None, (jsonify(...), 400)) si no es UTF-8."""
+    try:
+        return archivo.read().decode("utf-8"), None
+    except UnicodeDecodeError:
+        return None, (jsonify({"error": "El archivo no es texto UTF-8 válido"}), 400)
+
 
 def _leer_rubrica_activa() -> str:
     """Lee el contenido del .md activo desde disco y lo devuelve como string."""
@@ -180,17 +185,9 @@ def _guardar_resultado(alumno: str, resultado: dict):
     with open(ruta, "w", encoding="utf-8") as f:
         json.dump(datos, f, ensure_ascii=False, indent=2)  # guarda todo de nuevo
 
-def _leer_rubrica_ieee() -> str:
-    """Lee la rúbrica exclusiva para informes IEEE."""
-    ruta = os.path.join(RUBRICS_DIR, "rubrica_ieee_activa.md")
-    if not os.path.exists(ruta):
-        return ""
-    with open(ruta, "r", encoding="utf-8") as f:
-        return f.read()
-
-
 # ── PUNTO DE ENTRADA ──────────────────────────────────────────
 # Esto solo se ejecuta cuando corrés "python app.py" directamente.
-# debug=True hace que Flask se reinicie automáticamente si modificás el código.
+# En producción o red local: no uses debug. Para desarrollo: FLASK_DEBUG=1
 if __name__ == "__main__":
-    app.run(debug=True)
+    _debug = os.environ.get("FLASK_DEBUG", "").lower() in ("1", "true", "yes")
+    app.run(debug=_debug)

@@ -1,0 +1,6 @@
+# Dependencias para desarrollo y pruebas (instalar sobre el venv del proyecto).
+# Instalación: venv\Scripts\python -m pip install -r requirements-dev.txt
+pytest>=8.0.0
+
+# La app en runtime suele requerir también (si no están instaladas):
+# pip install flask python-dotenv openai pymupdf

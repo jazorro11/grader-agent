@@ -1,0 +1,21 @@
+---
+description: Las features web/UI deben pasar primero por experto-web-design para bloques lógicos antes de implementar.
+alwaysApply: true
+---
+
+# Flujo previo: especificación UI (experto-web-design)
+
+Para **nuevas funcionalidades** que impliquen **interfaz de usuario** (páginas, componentes visuales, flujos, layout, estilos, responsive, accesibilidad, navegación), el asistente debe **delegar primero** en el subagente **`experto-web-design`** (o aplicar el mismo formato de salida si la UI no permite subagentes), salvo que el usuario ya haya entregado una especificación equivalente en bloques.
+
+## Qué produce experto-web-design
+
+- Desglose en **bloques lógicos y funcionales** (user story por bloque, estados, interacciones, responsive, a11y, datos/contratos, criterios de aceptación).
+- **Orden de implementación** y handoff explícito al flujo normal del repo.
+
+## Encadenamiento
+
+1. **experto-web-design** → especificación en bloques.  
+2. **Implementación** según esos bloques (alcance mínimo por bloque o iteración acordada).  
+3. **experto-qa** y **revisor-codigo** como en la puerta de calidad del proyecto.
+
+Si la petición es **solo backend, scripts o cambios sin UI**, no es obligatorio invocar `experto-web-design`.
