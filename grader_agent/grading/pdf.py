@@ -1,63 +1,15 @@
-# pdf_grader.py
-import fitz  # pymupdf
-from openai import OpenAI
-from dotenv import load_dotenv
 import json
 import os
 
-load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+import fitz  # pymupdf
 
-SYSTEM_PROMPT_LISTAR_CRITERIOS = """
-Sos un asistente que analiza rúbricas académicas en Markdown.
+from grader_agent.openai_client import get_openai_client
+from grader_agent.prompts_loader import (
+    system_prompt_pdf_evaluar_criterio,
+    system_prompt_pdf_listar_criterios,
+)
 
-Tu tarea:
-- Identificar únicamente los CRITERIOS DE EVALUACIÓN o ítems que deben calificarse con puntaje.
-- Usar el nombre tal como aparece en la rúbrica (título del criterio o pregunta evaluable).
-- NO incluir: escalas generales de valoración, introducciones, tablas solo descriptivas,
-  secciones de referencias o bibliografía, anexos sin puntaje, ni duplicados.
-- NO inventar criterios que no estén implícitos o explícitos en el texto.
-- Si no hay criterios evaluables claros, devolvé una lista vacía.
-
-Respondé ÚNICAMENTE con un objeto JSON con este formato exacto:
-{"criterios": ["nombre 1", "nombre 2"]}
-"""
-
-SYSTEM_PROMPT_ENTREGABLE = """
-Sos un evaluador académico riguroso y justo.
-
-Recibirás:
-1. Una RÚBRICA en formato Markdown con criterios y puntajes máximos.
-2. El TEXTO COMPLETO del entregable del alumno extraído de un PDF.
-3. El CRITERIO específico que debés evaluar en esta llamada.
-
-Tu tarea:
-- Evaluar el entregable ÚNICAMENTE según el criterio indicado y la rúbrica provista.
-- Si la rúbrica no menciona el criterio, respondé con puntaje 0 y explicá que no está en la rúbrica.
-- Asignar un puntaje numérico entre 0 y el máximo indicado en la rúbrica para ese criterio.
-- Justificar el puntaje citando EVIDENCIA TEXTUAL concreta del entregable
-  (frases o secciones específicas que respalden tu evaluación).
-- Si el alumno demuestra comprensión aunque no use terminología exacta,
-  otorgá al menos el 70% del puntaje de ese criterio.
-- En caso de duda entre dos puntajes consecutivos, elegí el más alto.
-- NO penalizar errores ortográficos salvo que la rúbrica lo indique.
-- La retroalimentación debe ser un párrafo de 4-6 oraciones estructurado así:
-  1. Fortalezas: qué hizo bien el alumno con evidencia textual concreta del entregable.
-  2. Debilidades: qué aspectos están ausentes, incompletos o mal desarrollados.
-  3. Justificación del puntaje: explica explícitamente por qué se asignó ese puntaje
-     y no el máximo, conectando las debilidades con los criterios de la rúbrica.
-
-IMPORTANTE: No uses conocimiento externo ni criterios propios.
-Evaluá SOLO con lo que dice la rúbrica. Si algo no está en la rúbrica, no lo penalices.
-
-Respondé ÚNICAMENTE con un objeto JSON con este formato exacto, sin texto adicional:
-{
-  "criterio": "nombre del criterio evaluado",
-  "puntaje_obtenido": 7,
-  "puntaje_maximo": 10,
-  "retroalimentacion": "El entregable presenta X (evidencia: '...'). Le faltó Y para el puntaje máximo."
-}
-"""
+client = get_openai_client()
 
 
 def extraer_texto_pdf(ruta_pdf: str) -> str:
@@ -88,7 +40,7 @@ def listar_criterios_desde_rubrica(rubrica_md: str) -> list[str]:
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT_LISTAR_CRITERIOS},
+            {"role": "system", "content": system_prompt_pdf_listar_criterios()},
             {"role": "user", "content": user_message},
         ],
         temperature=0,
@@ -126,7 +78,7 @@ TEXTO DEL ENTREGABLE:
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT_ENTREGABLE},
+            {"role": "system", "content": system_prompt_pdf_evaluar_criterio()},
             {"role": "user", "content": user_message},
         ],
         temperature=0,

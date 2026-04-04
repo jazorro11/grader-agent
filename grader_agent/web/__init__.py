@@ -1,0 +1,1 @@
+"""Aplicación web Flask."""

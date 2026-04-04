@@ -2,7 +2,7 @@
 # Requiere OPENAI_API_KEY en el entorno. No forma parte de la suite pytest.
 # Uso (desde la raíz del repo): venv\Scripts\python scripts\manual_test_grader.py
 
-from grader import calificar_respuesta
+from grader_agent.grading.text import calificar_respuesta
 
 rubrica = """
 ## Pregunta 1 — Sistemas operativos (10 puntos)

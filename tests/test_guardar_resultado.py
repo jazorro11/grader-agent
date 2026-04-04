@@ -1,6 +1,6 @@
 import json
 
-import app as app_module
+import grader_agent.web.app as app_module
 
 
 def test_guardar_resultado_acumula_en_json(app_client):
