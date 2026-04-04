@@ -6,10 +6,14 @@ from flask import Flask, request, jsonify, render_template
 from pdf_grader import calificar_entregable_pdf
 from grader import calificar_respuesta      # módulo para calificar con GPT-4o
 from transcriber import transcribir_audio   # módulo para transcribir con Whisper
+from http_logging import configure_logging, register_http_logging
 import json
 import os
 
+configure_logging()
+
 app = Flask(__name__)  # crea la aplicación Flask. __name__ le dice a Flask dónde está el proyecto.
+register_http_logging(app)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # límite de subida (audio/PDF/rúbrica)
 
 
