@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-import app as app_module
+import grader_agent.web.app as app_module
 from tests.conftest import write_rubrica_parcial
 
 

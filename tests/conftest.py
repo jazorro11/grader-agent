@@ -5,7 +5,7 @@ os.environ.setdefault("OPENAI_API_KEY", "sk-test-fake-for-pytest")
 
 import pytest
 
-import app as app_module
+import grader_agent.web.app as app_module
 
 
 @pytest.fixture

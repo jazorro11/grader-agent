@@ -47,7 +47,6 @@ def configure_logging() -> None:
         )
     else:
         root.setLevel(level)
-    # Opcional: exportá WERKZEUG_LOG_QUIET=1 para ocultar el log de acceso duplicado de Werkzeug.
     if os.environ.get("WERKZEUG_LOG_QUIET", "").lower() in ("1", "true", "yes"):
         logging.getLogger("werkzeug").setLevel(logging.WARNING)
 

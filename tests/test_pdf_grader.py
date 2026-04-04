@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import pdf_grader
+import grader_agent.grading.pdf as pdf_grader
 
 
 def test_listar_criterios_desde_rubrica_parsea_json():
@@ -112,7 +112,7 @@ class _FakeDocLargo:
 
 def test_extraer_texto_pdf_rechaza_mas_de_cuatro_paginas():
     largo = _FakeDocLargo()
-    with patch("pdf_grader.fitz.open", return_value=largo):
+    with patch("grader_agent.grading.pdf.fitz.open", return_value=largo):
         with pytest.raises(ValueError, match="5 páginas"):
             pdf_grader.extraer_texto_pdf("cualquier.pdf")
     assert largo.closed
@@ -120,6 +120,6 @@ def test_extraer_texto_pdf_rechaza_mas_de_cuatro_paginas():
 
 def test_extraer_texto_pdf_concatena_texto_hasta_cuatro_paginas():
     doc = _FakeDocCorto()
-    with patch("pdf_grader.fitz.open", return_value=doc):
+    with patch("grader_agent.grading.pdf.fitz.open", return_value=doc):
         texto = pdf_grader.extraer_texto_pdf("informe.pdf")
     assert texto == "contenido"

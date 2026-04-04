@@ -3,7 +3,7 @@ import re
 
 import pytest
 
-from http_logging import configure_logging
+from grader_agent.http_logging import configure_logging
 
 
 def test_request_log_incluye_metodo_path_y_status(app_client, caplog):
