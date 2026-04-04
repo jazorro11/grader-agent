@@ -1,28 +1,15 @@
-## Tarea específica: ítem de parcial (texto o transcripción)
+## Ítem de parcial (texto o transcripción)
 
-Recibirás:
+Entrada: rúbrica Markdown y respuesta del alumno al ítem o pregunta que indica el docente.
 
-1. Una RÚBRICA en formato Markdown (preguntas, descriptores, respuestas esperadas, puntaje máximo).
-2. La RESPUESTA DE UN ALUMNO para una pregunta o ítem específico que el docente indicó.
+- Ubicá el ítem y sus descriptores. Puntaje de 0 al máximo de la rúbrica para ese ítem.
+- En `retroalimentacion` aplicá el bloque Retroalimentación del system. Orientación: 3 a 5 ideas en viñetas u oraciones muy cortas, siempre con cita o paráfrasis anclada y vínculo explícito a la rúbrica. Decí qué faltaría para el máximo.
 
-Tu tarea:
-
-- Calificar usando solo la rúbrica: localizá el ítem que corresponde a esa pregunta y sus descriptores.
-- Asignar un puntaje numérico entre 0 y el máximo indicado en la rúbrica para ese ítem.
-
-Retroalimentación (obligatorio, no genérica):
-
-- Entre 3 y 5 oraciones, en tono humano y respetuoso.
-- CITÁ ideas, datos o frases concretas de la respuesta del alumno (podés parafrasear entre comillas).
-- Conectá explícitamente con el descriptor o nivel de la rúbrica que aplicás (sin inventar criterios).
-- PROHIBIDO usar frases vacías sin anclaje: "muy bien en general", "buen trabajo", "correcto" sin decir qué y por qué según la rúbrica.
-- Explicá qué faltaría o qué mejoraría para alcanzar el puntaje máximo, de forma concreta.
-
-Respondé ÚNICAMENTE con un objeto JSON con este formato exacto, sin texto adicional:
+Respondé solo con este JSON, sin texto adicional:
 
 {
   "pregunta": "nombre o número de la pregunta",
   "puntaje_obtenido": 7,
   "puntaje_maximo": 10,
-  "retroalimentacion": "Texto concreto anclado a la respuesta y a la rúbrica."
+  "retroalimentacion": "..."
 }

@@ -1,10 +1,39 @@
 """Tests for prompt loading (real package prompt files)."""
 
-from grader_agent.prompts_loader import system_prompt_texto_item
+from grader_agent.prompts_loader import (
+    system_prompt_pdf_evaluar_criterio,
+    system_prompt_pdf_listar_criterios,
+    system_prompt_texto_item,
+)
 
 
-def test_system_prompt_texto_item_incluye_base_y_cuerpo_especifico():
+def _assert_prompt_compuesto_incluye_evaluador_y_retro(text: str) -> None:
+    low = text.lower()
+    assert "evaluador" in low and "estricto" in low
+    assert "retroalimentaci" in low and "retroalimentacion`" in text
+
+
+def test_system_prompt_texto_item_incluye_base_retro_y_cuerpo():
     text = system_prompt_texto_item()
     assert len(text) > 100
-    assert "evaluador académico" in text
-    assert "ítem de parcial" in text
+    _assert_prompt_compuesto_incluye_evaluador_y_retro(text)
+    low = text.lower()
+    assert "parcial (texto" in low
+    assert '"pregunta"' in text
+    assert '"retroalimentacion"' in text
+
+
+def test_system_prompt_pdf_evaluar_incluye_base_retro_y_criterio_pdf():
+    text = system_prompt_pdf_evaluar_criterio()
+    assert len(text) > 100
+    _assert_prompt_compuesto_incluye_evaluador_y_retro(text)
+    low = text.lower()
+    assert "texto del pdf" in low
+    assert '"criterio"' in text
+
+
+def test_system_prompt_pdf_listar_no_incluye_bloque_retro_alumno():
+    text = system_prompt_pdf_listar_criterios()
+    assert "Evaluador académico" not in text
+    assert "Háblale con tú" not in text
+    assert '"criterios"' in text
