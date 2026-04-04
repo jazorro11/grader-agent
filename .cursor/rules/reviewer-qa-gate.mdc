@@ -1,0 +1,39 @@
+---
+description: Toda feature o fix de bug debe pasar por revisión (revisor-codigo) y QA (experto-qa) antes de darse por cerrada.
+alwaysApply: true
+---
+
+# Puerta de calidad: revisor + QA
+
+Para **cualquier nueva funcionalidad** o **arreglo de bug** (cambios de comportamiento, API, datos o seguridad), el trabajo no se considera terminado hasta completar **ambos** frentes: **revisión de código** y **QA con pruebas**.
+
+## Flujo obligatorio
+
+1. **Implementar** el cambio con el alcance mínimo necesario.
+2. **QA (`experto-qa`)**  
+   - Añadir o actualizar **tests unitarios** que cubran el comportamiento nuevo o la regresión corregida (feliz, límites, error).  
+   - **Ejecutar** la suite de tests del proyecto y conservar la salida.  
+   - **Resumir** resultado: pasó/falló, fallos concretos y próximos pasos (formato del subagente).
+3. **Revisor (`revisor-codigo`)**  
+   - Revisar el diff/código tocado con foco en **calidad y seguridad**.  
+   - Entregar el **informe estructurado** (resumen ejecutivo, hallazgos por severidad, checklists, acciones prioritarias).
+
+Orden recomendado: implementación → tests y ejecución → revisión sobre el conjunto (código + tests). Si la revisión exige cambios, repetir el paso 2 al menos en lo afectado.
+
+## Criterio de cierre
+
+- Tests relevantes existen y **pasan** (o queda documentado por qué no se pueden ejecutar aquí y qué comando validar en local/CI).  
+- Informe del **revisor** sin hallazgos **críticos** ni **altos** sin resolver; los demás deben estar explícitamente aceptados o en tarea de seguimiento.
+
+## Cuando actúes como asistente en este repo
+
+- Tras cambios de feature o bugfix, **usa de forma proactiva** los subagentes **`revisor-codigo`** y **`experto-qa`** (o aplica el mismo proceso y formato de salida si la UI no permite subagentes).  
+- No cierres la tarea en el mensaje final sin haber cubierto revisión + QA según lo anterior.
+
+```text
+# ❌ Evitar
+"Cambio listo" sin tests nuevos/actualizados ni revisión de seguridad/calidad.
+
+# ✅ Correcto
+Código + tests ejecutados con resumen + revisión con informe y acciones cerradas o acordadas.
+```
