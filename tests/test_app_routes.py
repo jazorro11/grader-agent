@@ -1,8 +1,10 @@
+import copy
 import json
 from io import BytesIO
 from unittest.mock import patch
 
 import pytest
+from werkzeug.datastructures import MultiDict
 
 import grader_agent.web.app as app_module
 from tests.conftest import write_rubrica_parcial
@@ -254,6 +256,160 @@ def test_resultados_devuelve_lista_guardada(app_client):
     rv = app_client["client"].get("/resultados")
     assert rv.status_code == 200
     assert len(rv.get_json()) == 1
+
+
+def test_calificar_carpeta_sin_pdf_devuelve_400(app_client):
+    write_rubrica_parcial(app_client["rubrics"])
+    rv = app_client["client"].post(
+        "/calificar-carpeta-entregables",
+        data={"alumno": "X"},
+        content_type="multipart/form-data",
+    )
+    assert rv.status_code == 400
+    assert "pdf" in rv.get_json()["error"].lower()
+
+
+def test_calificar_carpeta_alumno_pdf_count_mismatch(app_client):
+    write_rubrica_parcial(app_client["rubrics"])
+    md = MultiDict()
+    md.add("pdf", (BytesIO(b"%PDF"), "a.pdf"))
+    rv = app_client["client"].post(
+        "/calificar-carpeta-entregables",
+        data=md,
+        content_type="multipart/form-data",
+    )
+    assert rv.status_code == 400
+
+
+def test_calificar_carpeta_sin_rubrica_devuelve_400(app_client):
+    md = MultiDict()
+    md.add("alumno", "A")
+    md.add("pdf", (BytesIO(b"%PDF"), "a.pdf"))
+    rv = app_client["client"].post(
+        "/calificar-carpeta-entregables",
+        data=md,
+        content_type="multipart/form-data",
+    )
+    assert rv.status_code == 400
+    assert "rúbrica" in rv.get_json()["error"].lower()
+
+
+@patch.object(app_module, "metadatos_criterios_desde_rubrica", return_value=[])
+def test_calificar_carpeta_sin_criterios_en_rubrica_devuelve_400(mock_meta, app_client):
+    write_rubrica_parcial(app_client["rubrics"])
+    md = MultiDict()
+    md.add("alumno", "A")
+    md.add("pdf", (BytesIO(b"%PDF"), "a.pdf"))
+    rv = app_client["client"].post(
+        "/calificar-carpeta-entregables",
+        data=md,
+        content_type="multipart/form-data",
+    )
+    assert rv.status_code == 400
+    assert "criterios" in rv.get_json()["error"].lower()
+    mock_meta.assert_called_once()
+
+
+@patch.object(app_module, "calificar_entregable_pdf")
+@patch.object(app_module, "metadatos_criterios_desde_rubrica")
+def test_calificar_carpeta_valueerror_en_un_pdf_deja_resto_ok(
+    mock_meta, mock_pdf, app_client
+):
+    write_rubrica_parcial(app_client["rubrics"])
+    mock_meta.return_value = [{"criterio": "C1", "puntaje_maximo": 2}]
+    fila_ok = {
+        "alumno": "BOB",
+        "tipo": "entregable_pdf",
+        "criterios": [
+            {
+                "criterio": "C1",
+                "puntaje_obtenido": 1,
+                "puntaje_maximo": 2,
+                "retroalimentacion": "ok",
+            }
+        ],
+        "total_obtenido": 1,
+        "total_maximo": 2,
+    }
+    mock_pdf.side_effect = [ValueError("pdf roto"), copy.deepcopy(fila_ok)]
+
+    md = MultiDict()
+    md.add("alumno", "ANA")
+    md.add("carpeta_origen", "ANA_111111_assignsubmission_file")
+    md.add("pdf", (BytesIO(b"%PDF-1"), "bad.pdf"))
+    md.add("alumno", "BOB")
+    md.add("carpeta_origen", "BOB_222222_assignsubmission_file")
+    md.add("pdf", (BytesIO(b"%PDF-2"), "good.pdf"))
+
+    rv = app_client["client"].post(
+        "/calificar-carpeta-entregables",
+        data=md,
+        content_type="multipart/form-data",
+    )
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert len(body["resultados"]) == 1
+    assert body["resultados"][0]["alumno"] == "BOB"
+    assert len(body["errores"]) == 1
+    assert body["errores"][0]["alumno"] == "ANA"
+    assert "pdf roto" in body["errores"][0]["error"]
+
+
+@patch.object(app_module, "calificar_entregable_pdf")
+@patch.object(app_module, "metadatos_criterios_desde_rubrica")
+def test_calificar_carpeta_camino_feliz(mock_meta, mock_pdf, app_client):
+    write_rubrica_parcial(app_client["rubrics"])
+    mock_meta.return_value = [{"criterio": "Criterio uno", "puntaje_maximo": 10}]
+    fila = {
+        "alumno": "ANA (111111)",
+        "tipo": "entregable_pdf",
+        "criterios": [
+            {
+                "criterio": "Criterio uno",
+                "puntaje_obtenido": 5,
+                "puntaje_maximo": 10,
+                "retroalimentacion": "bien",
+            }
+        ],
+        "total_obtenido": 5,
+        "total_maximo": 10,
+    }
+    mock_pdf.side_effect = [copy.deepcopy(fila), copy.deepcopy(fila)]
+    md = MultiDict()
+    md.add("alumno", "ANA (111111)")
+    md.add("nombre_completo", "ANA")
+    md.add("id_estudiante", "111111")
+    md.add("carpeta_origen", "ANA_111111_assignsubmission_file")
+    md.add("archivo_pdf", "sol.pdf")
+    md.add("pdf", (BytesIO(b"%PDF-1"), "sol.pdf"))
+    md.add("alumno", "BOB (222222)")
+    md.add("nombre_completo", "BOB")
+    md.add("id_estudiante", "222222")
+    md.add("carpeta_origen", "BOB_222222_assignsubmission_file")
+    md.add("archivo_pdf", "t.pdf")
+    md.add("pdf", (BytesIO(b"%PDF-2"), "t.pdf"))
+    rv = app_client["client"].post(
+        "/calificar-carpeta-entregables",
+        data=md,
+        content_type="multipart/form-data",
+    )
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert len(body["resultados"]) == 2
+    assert body["errores"] == []
+    assert body["csv"].startswith("\ufeff")
+    assert "111111" in body["csv"]
+    mock_meta.assert_called_once()
+    assert mock_pdf.call_count == 2
+    assert mock_pdf.call_args_list[0].kwargs["metadatos_criterios"] == [
+        {"criterio": "Criterio uno", "puntaje_maximo": 10}
+    ]
+
+    ruta = app_client["results"] / "resultados.json"
+    guardados = json.loads(ruta.read_text(encoding="utf-8"))
+    assert len(guardados) == 2
+    assert guardados[0]["id_estudiante"] == "111111"
+    assert guardados[1]["nombre_completo"] == "BOB"
 
 
 def test_limpiar_resultados_borra_json(app_client):

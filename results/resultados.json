@@ -1,40 +1,128 @@
 [
   {
-    "alumno": "ta",
+    "alumno": "ALEJANDRO TAFUR RODRIGUEZ (456290)",
+    "tipo": "entregable_pdf",
+    "criterios": [
+      {
+        "criterio": "Criterio 1: Justificación del Paradigma TinyML (Fase 1)",
+        "puntaje_obtenido": 4,
+        "puntaje_maximo": 4,
+        "retroalimentacion": "Tu justificación del uso de TinyML es sólida y bien argumentada. Has seleccionado y explicado claramente tres criterios: latencia, privacidad y accesibilidad económica. Al mencionar que el procesamiento local permite tiempos de respuesta en milisegundos, eliminas la latencia, lo cual es crucial para escenarios de alta velocidad. También destacas la privacidad al procesar datos localmente, asegurando que la información sea exclusiva del piloto. Además, enfatizas la accesibilidad para motos de baja y media gama, lo que muestra una comprensión clara de por qué el procesamiento en el borde es indispensable para tu caso. Buen trabajo al articular cómo estos criterios se vinculan específicamente con tu propuesta."
+      },
+      {
+        "criterio": "Criterio 2: Arquitectura del Sistema de Adquisición de Datos (Fase 2)",
+        "puntaje_obtenido": 100,
+        "puntaje_maximo": 100,
+        "retroalimentacion": "Has especificado con precisión los sensores y las señales físicas que medirás, como el movimiento con IMU, posición y velocidad con GPS, y temperatura de neumáticos con infrarrojo. También describes cómo las restricciones del microcontrolador, como la memoria limitada, condicionan las decisiones de diseño, lo cual es clave para un sistema embebido. Además, explicas claramente el flujo de Machine Learning, desde el entrenamiento con datos históricos hasta la inferencia en tiempo real, lo que demuestra una comprensión completa del proceso. Todo esto encaja perfectamente con el nivel más alto de la rúbrica."
+      },
+      {
+        "criterio": "Criterio 3: Evolución hacia IoT 2.0 — Intelligence of Things (Fase 3)",
+        "puntaje_obtenido": 75,
+        "puntaje_maximo": 100,
+        "retroalimentacion": "Argumentas correctamente por qué tu dispositivo pertenece al ecosistema IoT 2.0 al explicar que identifica patrones de conducción y predice errores basándose en el procesamiento local. Esto muestra una clara diferenciación respecto a IoT 1.0, que solo transmitiría datos brutos. Sin embargo, la argumentación podría ser más detallada al incluir ejemplos concretos de cómo se realiza este reconocimiento de patrones o predicción de eventos. Aún así, lograste establecer una base sólida para la pertenencia al IoT 2.0."
+      },
+      {
+        "criterio": "Criterio 4: Análisis Crítico frente al Caso de Éxito (Fase 4)",
+        "puntaje_obtenido": 100,
+        "puntaje_maximo": 100,
+        "retroalimentacion": "Identificas una similitud técnica clara y relevante con el caso del collar OpenSource para elefantes, explicando cómo ambos sistemas utilizan sensores de movimiento para detectar patrones y mejorar la seguridad. Además, anticipas obstáculos específicos como las vibraciones mecánicas, altas temperaturas y ruido electromagnético, demostrando un análisis crítico y detallado sobre las condiciones hostiles que enfrentará tu dispositivo. Esto muestra un pensamiento profundo sobre el despliegue real de tu solución, cumpliendo con el nivel más alto de la rúbrica."
+      },
+      {
+        "criterio": "Criterio 5: Formato, Estructura y Comunicación del Entregable",
+        "puntaje_obtenido": 75,
+        "puntaje_maximo": 100,
+        "retroalimentacion": "Cumples con el formato PDF y la extensión de 2 páginas, lo cual es un buen inicio. Incluyes un título y una descripción del problema, además de desarrollar las 4 fases solicitadas. La redacción es clara en general, aunque hay algunas áreas donde la organización podría mejorar para facilitar la lectura. Por ejemplo, podrías estructurar mejor las secciones para que cada fase destaque más claramente. Esto ayudaría a que el lector siga el flujo de tu propuesta de manera más intuitiva."
+      }
+    ],
+    "total_obtenido": 354,
+    "total_maximo": 404,
+    "nombre_completo": "ALEJANDRO TAFUR RODRIGUEZ",
+    "id_estudiante": "456290",
+    "carpeta_origen": "ALEJANDRO TAFUR RODRIGUEZ_456290_assignsubmission_file",
+    "archivo_pdf": "TALLER TINYML RESUELTO.pdf"
+  },
+  {
+    "alumno": "DANIEL CAMILO OCAMPO TORRES (456289)",
+    "tipo": "entregable_pdf",
+    "criterios": [
+      {
+        "criterio": "Criterio 1: Justificación del Paradigma TinyML (Fase 1)",
+        "puntaje_obtenido": 4,
+        "puntaje_maximo": 4,
+        "retroalimentacion": "Tu justificación para usar TinyML en el dispositivo GatoEdge es sólida y bien articulada. Seleccionas y explicas claramente los criterios de latencia, privacidad, ancho de banda, y energía/costos. Por ejemplo, mencionas que la latencia es crítica para notificar al dueño en milisegundos si el gato cruza el límite, y cómo el procesamiento local protege la privacidad al no transmitir la ubicación a servidores externos. También abordas cómo el uso de TinyML reduce el tráfico de datos y extiende la vida útil de la batería, lo cual demuestra una comprensión clara de por qué el procesamiento en el borde es indispensable para tu caso. Excelente trabajo en conectar cada criterio con las características específicas de tu dispositivo."
+      },
+      {
+        "criterio": "Criterio 2: Arquitectura del Sistema de Adquisición de Datos (Fase 2)",
+        "puntaje_obtenido": 100,
+        "puntaje_maximo": 100,
+        "retroalimentacion": "Has especificado con precisión los sensores y las señales físicas relevantes para el problema. El GPS captura las coordenadas geográficas y el acelerómetro detecta patrones de movimiento, lo que es crucial para tu diseño. Analizas cómo las restricciones del microcontrolador ESP32, como la memoria y el procesamiento, condicionan las decisiones de diseño, incluyendo el uso de un modelo minimalista de TinyML. Además, describes claramente el flujo de datos desde el entrenamiento offline hasta la inferencia en tiempo real, lo que demuestra una comprensión completa de la arquitectura del sistema. Todo esto cumple con el nivel más alto de la rúbrica."
+      },
+      {
+        "criterio": "Criterio 3: Evolución hacia IoT 2.0 — Intelligence of Things (Fase 3)",
+        "puntaje_obtenido": 100,
+        "puntaje_maximo": 100,
+        "retroalimentacion": "Argumentas de manera sólida por qué GatoEdge pertenece al ecosistema IoT 2.0. Describes cómo el dispositivo no solo transmite datos, sino que ejecuta un modelo de machine learning directamente en el collar, lo que permite la toma de decisiones local sin depender de la nube. Esto demuestra inteligencia local al reconocer patrones de movimiento y predecir comportamientos de riesgo. Además, explicas cómo el modelo se adapta a cambios en el entorno, como un cambio de residencia, lo que es característico del IoT 2.0. La comparación con un enfoque IoT 1.0 es clara y bien fundamentada, mostrando cómo GatoEdge supera las limitaciones de simplemente enviar coordenadas brutas a un servidor."
+      },
+      {
+        "criterio": "Criterio 4: Análisis Crítico frente al Caso de Éxito (Fase 4)",
+        "puntaje_obtenido": 100,
+        "puntaje_maximo": 100,
+        "retroalimentacion": "Tu análisis del caso de éxito del collar OpenSource para elefantes es muy detallado y bien fundamentado. Identificas claramente la similitud técnica en el uso de GPS para detectar cuando un animal sale de una zona segura, lo cual es relevante para tu dispositivo GatoEdge. Además, anticipas obstáculos específicos y realistas para tu dispositivo, como el tamaño y peso del collar, los errores de posicionamiento GPS en entornos urbanos y el comportamiento impredecible de los gatos. Estos puntos demuestran un pensamiento crítico sólido sobre el despliegue real de tu dispositivo. Has logrado un análisis completo y profundo, lo que se refleja en el puntaje máximo obtenido."
+      },
+      {
+        "criterio": "Criterio 5: Formato, Estructura y Comunicación del Entregable",
+        "puntaje_obtenido": 75,
+        "puntaje_maximo": 100,
+        "retroalimentacion": "Cumples con el formato PDF y la extensión de 2 páginas, lo cual es un buen comienzo. Incluyes un título claro y una descripción del problema, además de desarrollar las 4 fases solicitadas. La redacción es clara en general, aunque hay algunas observaciones menores de organización que podrían mejorarse para una presentación más fluida. Por ejemplo, podrías estructurar mejor las secciones para que cada fase sea más fácilmente identificable y seguir un orden más lógico. Esto ayudaría a que la comunicación sea aún más efectiva y coherente."
+      }
+    ],
+    "total_obtenido": 379,
+    "total_maximo": 404,
+    "nombre_completo": "DANIEL CAMILO OCAMPO TORRES",
+    "id_estudiante": "456289",
+    "carpeta_origen": "DANIEL CAMILO OCAMPO TORRES_456289_assignsubmission_file",
+    "archivo_pdf": "GatoEdge_TinyML.pdf (1).pdf"
+  },
+  {
+    "alumno": "JEDRECK TRIANA VENNER (456294)",
     "tipo": "entregable_pdf",
     "criterios": [
       {
         "criterio": "Criterio 1: Justificación del Paradigma TinyML (Fase 1)",
         "puntaje_obtenido": 100,
         "puntaje_maximo": 100,
-        "retroalimentacion": "Cuando describes que el sistema de asistencia basado en TinyML procesa datos de sensores en tiempo real para enviar instrucciones auditivas, demuestras una comprensión clara de por qué el procesamiento en el borde es indispensable. Seleccionas y justificas criterios como la latencia, al mencionar que se busca lograr tiempos de respuesta en milisegundos, y la privacidad, al destacar que el procesamiento local mantiene la información exclusiva del piloto. Además, mencionas la accesibilidad para motocicletas de baja y media gama, lo que refuerza tu argumento sobre la importancia de TinyML en este contexto. Todo esto está bien articulado y muestra un entendimiento sólido del paradigma TinyML."
+        "retroalimentacion": "Cuando explicas que la latencia es crucial para detectar caídas en tiempo real, demuestras una comprensión clara de por qué el procesamiento en el borde es indispensable. También justificas el uso de TinyML por razones de privacidad, al procesar datos sensibles localmente, y por eficiencia energética, al utilizar microcontroladores de bajo consumo. Estos argumentos son sólidos y específicos, mostrando cómo cada criterio se vincula directamente con las características de tu dispositivo. Has articulado bien por qué TinyML es preferible a la nube en este contexto."
       },
       {
         "criterio": "Criterio 2: Arquitectura del Sistema de Adquisición de Datos (Fase 2)",
         "puntaje_obtenido": 100,
         "puntaje_maximo": 100,
-        "retroalimentacion": "Has especificado con precisión los sensores y las señales físicas que medirás, como el movimiento con IMU, la posición y velocidad con GPS, y la temperatura de neumáticos con infrarrojo. Esto cumple con el descriptor de identificar sensores y señales físicas con claridad. Además, describes cómo las restricciones del microcontrolador, como la memoria limitada, condicionan decisiones de diseño, lo cual encaja perfectamente con el nivel más alto de la rúbrica. También explicas el flujo de entrenamiento e inferencia de manera clara, detallando cómo se obtienen los datos históricos y cómo se realiza la inferencia en tiempo real. Todo esto demuestra un análisis completo y bien fundamentado de la arquitectura del sistema."
+        "retroalimentacion": "Describes con precisión los sensores utilizados: acelerómetro/giroscopio, micrófono y cámara, explicando claramente las señales físicas que capturan, como el movimiento brusco típico de una caída o el sonido de un impacto. Analizas cómo las restricciones del microcontrolador, como la memoria limitada y la capacidad de procesamiento, condicionan decisiones de diseño concretas, como el uso de cuantización con TensorFlow Lite para reducir el tamaño del modelo. Además, explicas con claridad el flujo de entrenamiento e inferencia, mencionando el uso de datos históricos de caídas simuladas para el entrenamiento en la nube y el análisis en tiempo real en el dispositivo. Todo esto demuestra una comprensión sólida y detallada de la arquitectura del sistema de adquisición de datos."
       },
       {
         "criterio": "Criterio 3: Evolución hacia IoT 2.0 — Intelligence of Things (Fase 3)",
         "puntaje_obtenido": 75,
         "puntaje_maximo": 100,
-        "retroalimentacion": "Argumentas correctamente por qué tu dispositivo pertenece al ecosistema IoT 2.0 al explicar que no solo transmite datos brutos, sino que identifica patrones de conducción y predice errores basándose en el procesamiento local. Esto muestra un avance hacia la inteligencia local. Sin embargo, la argumentación podría ser más detallada al incluir ejemplos específicos de cómo se realiza este procesamiento y cómo se diferencia claramente de un enfoque IoT 1.0. Un poco más de profundidad en estos aspectos te acercaría al nivel máximo."
+        "retroalimentacion": "Argumentas correctamente por qué tu dispositivo pertenece al ecosistema IoT 2.0 al explicar que toma decisiones localmente, como reconocer si fue una caída o un movimiento normal. Esto muestra que el dispositivo actúa de manera autónoma sin necesidad de un servidor externo, lo cual es un aspecto clave del IoT 2.0. Sin embargo, la argumentación podría ser más detallada al incluir ejemplos concretos de cómo el dispositivo identifica patrones o predice eventos. Esto te ayudaría a alcanzar un nivel más alto de profundidad en tu explicación."
       },
       {
         "criterio": "Criterio 4: Análisis Crítico frente al Caso de Éxito (Fase 4)",
         "puntaje_obtenido": 100,
         "puntaje_maximo": 100,
-        "retroalimentacion": "Identificas una similitud técnica clara con el caso del 'Collar OpenSource con TinyML', explicando cómo ambos sistemas detectan patrones para prevenir riesgos y mejorar el rendimiento. Esto demuestra un entendimiento profundo de las funciones compartidas, como el uso de sensores de movimiento para clasificar estados en tiempo real. Además, anticipas obstáculos específicos y realistas, como las vibraciones mecánicas, altas temperaturas y ruido electromagnético, lo que refleja un pensamiento crítico sobre las condiciones del entorno en el que operará tu dispositivo. Todo esto encaja perfectamente con el descriptor de nivel 4, mostrando un análisis detallado y bien fundamentado."
+        "retroalimentacion": "Tu análisis sobre la similitud con el collar OpenSource es claro y detallado. Has identificado que ambos dispositivos utilizan sensores de movimiento y audio para reconocer patrones sin necesidad de internet, lo cual es una similitud significativa. Además, anticipas obstáculos realistas como los falsos positivos, la necesidad de que el usuario lo lleve puesto, la colocación del dispositivo y el ruido en hospitales. Estos puntos demuestran un pensamiento crítico sólido sobre los desafíos que podrías enfrentar en el despliegue real de tu dispositivo. Excelente trabajo en esta sección."
       },
       {
         "criterio": "Criterio 5: Formato, Estructura y Comunicación del Entregable",
         "puntaje_obtenido": 75,
         "puntaje_maximo": 100,
-        "retroalimentacion": "Cumples con el formato PDF y la extensión de 2 páginas, lo cual es un buen inicio. Incluyes un título claro y una descripción del problema, además de desarrollar las 4 fases solicitadas. La redacción es clara en general, aunque hay algunos detalles menores de organización que podrían mejorarse para alcanzar el máximo nivel. Por ejemplo, podrías estructurar mejor la sección de objetivos para que sea más fácil de seguir. En general, estás en buen camino, pero con algunos ajustes podrías mejorar la presentación y claridad del documento."
+        "retroalimentacion": "Cumples con el formato PDF y la extensión de 2 páginas, lo cual es un buen inicio. Incluyes un título claro y una descripción del problema, así como las 4 fases solicitadas, lo que muestra que sigues la estructura requerida. La redacción es clara en general, aunque hay algunos puntos donde la organización podría mejorarse para facilitar la lectura. Por ejemplo, podrías usar subtítulos más destacados o listas para separar mejor las ideas en cada fase. Esto te ayudaría a alcanzar un nivel de presentación más coherente y preciso."
       }
     ],
     "total_obtenido": 450,
-    "total_maximo": 500
+    "total_maximo": 500,
+    "nombre_completo": "JEDRECK TRIANA VENNER",
+    "id_estudiante": "456294",
+    "carpeta_origen": "JEDRECK TRIANA VENNER_456294_assignsubmission_file",
+    "archivo_pdf": "Taller jedreck triana.pdf"
   }
 ]
