@@ -22,7 +22,8 @@ RESPUESTA DEL ALUMNO: {respuesta_alumno}
             {"role": "system", "content": system_prompt_texto_item()},
             {"role": "user", "content": user_message},
         ],
-        temperature=0,
+        # >0 para variar la redacción de retroalimentación; el system fija tono y JSON.
+        temperature=0.25,
         response_format={"type": "json_object"},
     )
 

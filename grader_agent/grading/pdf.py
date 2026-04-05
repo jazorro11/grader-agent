@@ -81,7 +81,8 @@ TEXTO DEL ENTREGABLE:
             {"role": "system", "content": system_prompt_pdf_evaluar_criterio()},
             {"role": "user", "content": user_message},
         ],
-        temperature=0,
+        # >0 para reducir repeticiones mecánicas entre criterios; el system fija tono y JSON.
+        temperature=0.25,
         response_format={"type": "json_object"},
     )
 

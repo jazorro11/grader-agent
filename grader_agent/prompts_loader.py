@@ -25,7 +25,8 @@ def _merge_evaluator_with_retro(body_file: str) -> str:
     base = _read_relative("_base_evaluador.md")
     retro = _read_relative("_retro_alumno.md")
     body = _read_relative(body_file)
-    return "\n\n".join((base, retro, body))
+    # Retro al final: las restricciones de tono quedan más cerca de la generación del JSON.
+    return "\n\n".join((base, body, retro))
 
 
 def system_prompt_texto_item() -> str:
