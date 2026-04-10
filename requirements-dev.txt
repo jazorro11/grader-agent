@@ -1,0 +1,6 @@
+# Development dependencies. Prefer installing the project in editable mode:
+#
+#   pip install -e ".[dev]"
+#
+# This file remains for quick installs of pytest only:
+pytest>=8.0.0
