@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grader-agent"
+version = "0.1.0"
+description = "Multimodal AI-assisted grading demo for teachers (text, audio, PDF)."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "flask>=3.0.0",
+  "python-dotenv>=1.0.0",
+  "openai>=1.40.0",
+  "pymupdf>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+grader_agent = ["prompts/*.md"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

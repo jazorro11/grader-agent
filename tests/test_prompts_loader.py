@@ -10,18 +10,22 @@ from grader_agent.prompts_loader import (
 )
 
 
-def _assert_prompt_incluye_base_evaluador(text: str) -> None:
+def _assert_prompt_incluye_base_evaluador_puntaje(text: str) -> None:
+    """Comprueba que el cuerpo incluye _base_evaluador_puntaje (tuteo CO, reglas de puntaje)."""
     low = text.lower()
     assert "evaluador" in low and "estricto" in low
     assert "colombia" in low and "sin voseo" in low
+    assert "dudas" in low and "inferior" in low
 
 
 def test_system_prompt_pdf_puntaje_incluye_base_sin_bloque_retro_completo():
     text = system_prompt_pdf_puntaje_criterio()
     assert len(text) > 100
-    _assert_prompt_incluye_base_evaluador(text)
+    _assert_prompt_incluye_base_evaluador_puntaje(text)
     assert '"puntaje_obtenido"' in text
     assert "puntaje máximo canónico" in text.lower()
+    assert "sin piso automático" in text.lower()
+    assert "explícitamente" in text.lower()
     assert "Háblale con tú" not in text
 
 
@@ -29,6 +33,7 @@ def test_system_prompt_pdf_retro_incluye_retro_alumno():
     text = system_prompt_pdf_retro_criterio()
     assert len(text) > 100
     assert "Háblale con tú" in text
+    assert "imperativo" in text.lower()
     assert "Chequeo antes de devolver el JSON" in text
     assert '"retroalimentacion"' in text
 
@@ -50,11 +55,14 @@ def test_system_prompt_texto_escala_es_ligero():
 
 def test_system_prompt_texto_puntaje_incluye_base():
     text = system_prompt_texto_puntaje_item()
-    _assert_prompt_incluye_base_evaluador(text)
+    _assert_prompt_incluye_base_evaluador_puntaje(text)
     assert '"puntaje_obtenido"' in text
+    assert "sin piso automático" in text.lower()
+    assert "explícitamente" in text.lower()
 
 
 def test_system_prompt_texto_retro_incluye_retro_alumno():
     text = system_prompt_texto_retro_item()
     assert "Háblale con tú" in text
+    assert "imperativo" in text.lower()
     assert '"retroalimentacion"' in text

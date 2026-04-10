@@ -1,9 +1,11 @@
-# Punto de entrada: `python app.py`. Los tests importan `grader_agent.web.app`.
+"""Legacy entrypoint; prefer ``python -m app`` or ``flask --app app:create_app run``."""
 
-import os
+from app import create_app
 
-from grader_agent.web.app import app
+app = create_app()
 
 if __name__ == "__main__":
+    import os
+
     _debug = os.environ.get("FLASK_DEBUG", "").lower() in ("1", "true", "yes")
     app.run(debug=_debug)
