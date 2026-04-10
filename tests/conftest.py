@@ -1,29 +1,30 @@
-# Evita fallos al importar módulos que instancian OpenAI antes de los mocks.
+# Avoid import failures when modules construct OpenAI clients before mocks.
 import os
 
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-fake-for-pytest")
 
 import pytest
 
-import grader_agent.web.app as app_module
+from app import create_app
 
 
 @pytest.fixture
 def app_client(monkeypatch, tmp_path):
+    """Isolated data dir: rubrics under ``tmp_path/rubrics``, results at ``tmp_path/resultados.json``."""
+    monkeypatch.setenv("GRADER_DATA_DIR", str(tmp_path))
+    flask_app = create_app(testing=True)
+    client = flask_app.test_client()
     rubrics = tmp_path / "rubrics"
-    results = tmp_path / "results"
-    rubrics.mkdir()
-    results.mkdir()
-    monkeypatch.setattr(app_module, "RUBRICS_DIR", str(rubrics))
-    monkeypatch.setattr(app_module, "RESULTS_DIR", str(results))
-    app_module.app.config["TESTING"] = True
-    client = app_module.app.test_client()
+    results = tmp_path
+    rubrics.mkdir(parents=True, exist_ok=True)
     return {
         "client": client,
+        "app": flask_app,
         "rubrics": rubrics,
         "results": results,
     }
 
 
 def write_rubrica_parcial(rubrics_dir, contenido: str = "## Rubrica\n") -> None:
+    rubrics_dir.mkdir(parents=True, exist_ok=True)
     (rubrics_dir / "rubrica_activa.md").write_text(contenido, encoding="utf-8")

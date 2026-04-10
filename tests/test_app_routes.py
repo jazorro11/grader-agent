@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from werkzeug.datastructures import MultiDict
 
-import grader_agent.web.app as app_module
+import app.routes as routes_module
 from tests.conftest import write_rubrica_parcial
 
 
@@ -28,6 +28,17 @@ def test_calificar_texto_sin_rubrica_devuelve_400(app_client):
     assert "rúbrica" in body["error"].lower()
 
 
+def test_calificar_texto_respuesta_vacia_devuelve_400(app_client):
+    write_rubrica_parcial(app_client["rubrics"])
+    c = app_client["client"]
+    rv = c.post(
+        "/calificar-texto",
+        json={"pregunta": "P1", "respuesta": "   ", "alumno": "Ana"},
+    )
+    assert rv.status_code == 400
+    assert "vac" in rv.get_json()["error"].lower()
+
+
 def test_calificar_texto_json_invalido_devuelve_400(app_client):
     c = app_client["client"]
     rv = c.post(
@@ -46,7 +57,7 @@ def test_calificar_texto_sin_content_type_json_devuelve_400(app_client):
     assert "JSON" in rv.get_json()["error"]
 
 
-@patch.object(app_module, "calificar_respuesta")
+@patch.object(routes_module, "calificar_respuesta")
 def test_calificar_texto_camino_feliz_guarda_resultado(
     mock_calificar, app_client
 ):
@@ -90,7 +101,7 @@ def test_calificar_audio_sin_archivo_devuelve_400(app_client):
     assert "audio" in rv.get_json()["error"].lower()
 
 
-@patch.object(app_module, "transcribir_audio")
+@patch.object(routes_module, "transcribir_audio")
 def test_calificar_audio_sin_rubrica_devuelve_400(mock_tr, app_client):
     mock_tr.return_value = "transcripción simulada"
     c = app_client["client"]
@@ -104,8 +115,8 @@ def test_calificar_audio_sin_rubrica_devuelve_400(mock_tr, app_client):
     mock_tr.assert_called_once()
 
 
-@patch.object(app_module, "calificar_respuesta")
-@patch.object(app_module, "transcribir_audio")
+@patch.object(routes_module, "calificar_respuesta")
+@patch.object(routes_module, "transcribir_audio")
 def test_calificar_audio_camino_feliz(mock_tr, mock_cal, app_client):
     write_rubrica_parcial(app_client["rubrics"])
     mock_tr.return_value = "lo que dijo el alumno"
@@ -158,7 +169,7 @@ def test_cargar_rubrica_no_utf8_devuelve_400(app_client):
 
 
 def test_subida_supera_max_content_length_devuelve_413(app_client, monkeypatch):
-    monkeypatch.setitem(app_module.app.config, "MAX_CONTENT_LENGTH", 80)
+    monkeypatch.setitem(app_client["app"].config, "MAX_CONTENT_LENGTH", 80)
     rv = app_client["client"].post(
         "/cargar-rubrica",
         data={"rubrica": (BytesIO(b"#" * 200), "grande.md")},
@@ -193,7 +204,7 @@ def test_calificar_entregable_sin_rubrica_devuelve_400(app_client):
     assert "rúbrica" in rv.get_json()["error"].lower()
 
 
-@patch.object(app_module, "calificar_entregable_pdf")
+@patch.object(routes_module, "calificar_entregable_pdf")
 def test_calificar_entregable_camino_feliz(mock_pdf, app_client):
     write_rubrica_parcial(app_client["rubrics"])
     mock_pdf.return_value = {
@@ -218,7 +229,7 @@ def test_calificar_entregable_camino_feliz(mock_pdf, app_client):
     assert args[2] == "María"
 
 
-@patch.object(app_module, "calificar_entregable_pdf")
+@patch.object(routes_module, "calificar_entregable_pdf")
 def test_calificar_entregable_valueerror_devuelve_400(mock_pdf, app_client):
     write_rubrica_parcial(app_client["rubrics"])
     mock_pdf.side_effect = ValueError("PDF demasiado largo")
@@ -242,7 +253,7 @@ def test_resultados_vacio_si_no_hay_archivo(app_client):
 
 def test_resultados_devuelve_lista_guardada(app_client):
     write_rubrica_parcial(app_client["rubrics"])
-    with patch.object(app_module, "calificar_respuesta") as mock_cal:
+    with patch.object(routes_module, "calificar_respuesta") as mock_cal:
         mock_cal.return_value = {
             "pregunta": "P",
             "puntaje_obtenido": 1,
@@ -294,7 +305,7 @@ def test_calificar_carpeta_sin_rubrica_devuelve_400(app_client):
     assert "rúbrica" in rv.get_json()["error"].lower()
 
 
-@patch.object(app_module, "metadatos_criterios_desde_rubrica", return_value=[])
+@patch.object(routes_module, "metadatos_criterios_desde_rubrica", return_value=[])
 def test_calificar_carpeta_sin_criterios_en_rubrica_devuelve_400(mock_meta, app_client):
     write_rubrica_parcial(app_client["rubrics"])
     md = MultiDict()
@@ -310,8 +321,8 @@ def test_calificar_carpeta_sin_criterios_en_rubrica_devuelve_400(mock_meta, app_
     mock_meta.assert_called_once()
 
 
-@patch.object(app_module, "calificar_entregable_pdf")
-@patch.object(app_module, "metadatos_criterios_desde_rubrica")
+@patch.object(routes_module, "calificar_entregable_pdf")
+@patch.object(routes_module, "metadatos_criterios_desde_rubrica")
 def test_calificar_carpeta_valueerror_en_un_pdf_deja_resto_ok(
     mock_meta, mock_pdf, app_client
 ):
@@ -355,8 +366,8 @@ def test_calificar_carpeta_valueerror_en_un_pdf_deja_resto_ok(
     assert "pdf roto" in body["errores"][0]["error"]
 
 
-@patch.object(app_module, "calificar_entregable_pdf")
-@patch.object(app_module, "metadatos_criterios_desde_rubrica")
+@patch.object(routes_module, "calificar_entregable_pdf")
+@patch.object(routes_module, "metadatos_criterios_desde_rubrica")
 def test_calificar_carpeta_camino_feliz(mock_meta, mock_pdf, app_client):
     write_rubrica_parcial(app_client["rubrics"])
     mock_meta.return_value = [{"criterio": "Criterio uno", "puntaje_maximo": 10}]
