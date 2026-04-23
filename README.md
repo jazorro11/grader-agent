@@ -27,35 +27,84 @@ It is **not** a gradebook replacement, an official LMS, or a guarantee of fair o
 
 ## Main workflows
 
+End-to-end sequence for a single grading request: **request checks → plain text → student-content policy → rubric checks → LLM scores → deterministic output validation → LLM feedback**. Batch PDF export reuses the same pipeline per file and then writes CSV.
+
 ```mermaid
 flowchart TD
-  subgraph inputs [Inputs]
-    Rubric[Markdown rubric]
-    Text[Text answer]
-    Audio[Audio file]
-    PDF[PDF up to 4 pages]
+  subgraph inputs["Inputs"]
+    Rubric["Markdown rubric"]
+    Text["Text JSON pregunta/respuesta"]
+    Audio["Audio path + item JSON"]
+    PDF["PDF up to 4 pages"]
   end
-  subgraph core [Core]
-    STT[OpenAI Whisper STT]
-    Chat[OpenRouter chat JSON]
-    Extract[PDF text extraction]
-    Guard[Two-layer content validation]
-  end
-  subgraph outputs [Outputs]
-    Score[Scores and feedback]
-    CSV[CSV batch export]
-  end
-  Rubric --> Chat
-  Text --> Guard --> Chat
-  Audio --> STT --> Guard --> Chat
-  PDF --> Extract --> Guard --> Chat
-  Chat --> Score
-  Chat --> CSV
+
+  S0["Step 0 · Request validation<br/>delivery type, names, non-empty rubric & payload"]
+  S1["Step 1 · Plain text<br/>parse JSON · Whisper STT · PyMuPDF extract"]
+  S2["Step 2 · Content validation<br/>Layer A regex · Layer B LLM optional"]
+  Rej["GradingResult status=rejected<br/>no rubric grading call"]
+  S3["Step 3 · Rubric validation<br/>headings + numeric % weight"]
+  Br{"Text or audio?"}
+  Map["Align item to rubric scale<br/>escala_item_desde_rubrica"]
+  MapErr["ErrorResult invalid item"]
+  S4["Step 4 · LLM grading<br/>scores_by_criterion JSON · bounded retries"]
+  S4err["ErrorResult grading failed"]
+  S5["Step 5 · Output validation<br/>schema, criteria set, clamps, totals"]
+  S5err["ErrorResult output validation failed"]
+  S6["Step 6 · Feedback LLM<br/>retroalimentacion from validated JSON"]
+  FBerr["ErrorResult feedback failure"]
+  OK["GradingResult success<br/>scores + feedback"]
+  CSV["Batch UI · per-PDF pipeline · CSV export"]
+
+  Rubric --> S0
+  Text --> S0
+  Audio --> S0
+  PDF --> S0
+  S0 --> S1
+  S1 --> S2
+  S2 -->|verdict rejected| Rej
+  S2 -->|verdict clean| S3
+  Rubric --> S3
+  S3 --> Br
+  Br -->|yes| Map
+  Br -->|PDF| S4
+  Map -->|ValueError| MapErr
+  Map --> S4
+  Rubric --> S4
+  S4 -->|valid JSON payload| S5
+  S4 -->|ErrorResult| S4err
+  S5 -->|ErrorResult| S5err
+  S5 -->|normalized payload| S6
+  S6 -->|ErrorResult| FBerr
+  S6 --> OK
+  PDF -.-> CSV
+  Rubric -.-> CSV
 ```
 
 1. **Upload rubric** → stored as `data/rubrics/rubrica_activa.md` (paths configurable).
 2. **Grade one modality** → JSON response; optional append to results log.
 3. **Optional** → Clear results, export CSV after batch PDF grading.
+
+---
+
+## Validation stages (complete)
+
+Every graded request follows the same gates (see [`GradingPipeline.run`](src/grader_agent/pipeline.py)). There is **no UI bypass** for any of them.
+
+| Stage | Step | Service / module | What is validated |
+|--------|------|-------------------|-------------------|
+| **Request** | 0 | [`pipeline._validate_request`](src/grader_agent/pipeline.py) | `delivery_type`, non-empty student name, rubric body, submission `content`. Text: JSON with `pregunta`/`respuesta`. Audio: path + item (or single-criterion rubric). |
+| **Audio file** | 1 | [`TranscriptionService`](src/grader_agent/services/transcription.py) | Path exists, allowed extension (Whisper subset), max size (25 MiB), then API call; failures surface as `ErrorResult`. |
+| **PDF file** | 1 | [`PDFExtractionService`](src/grader_agent/services/pdf_extraction.py) | Opens as PDF, **≤ 4 pages**, concatenated `get_text()` non-empty (no extractable text → error). |
+| **Student body** | 2 | [`ContentValidationService`](src/grader_agent/services/content_validation.py) | **Layer A:** regex policy scan ([`guardrails/regex_layer.py`](src/grader_agent/guardrails/regex_layer.py)). **Layer B:** optional OpenRouter JSON verdict when A is clean and `SKIP_LLM_VALIDATION` is false ([`validacion_capa_b`](src/grader_agent/prompts/validacion_capa_b.md)). Rejection returns **without** calling the grader. |
+| **Rubric file** | 3 | [`RubricValidationService`](src/grader_agent/services/rubric_validation.py) | Non-empty Markdown, at least one `#` heading, at least one numeric `%` weight pattern. |
+| **Item vs rubric** | — (between 3 and 4) | [`escala_item_desde_rubrica`](src/grader_agent/grading/text.py) | **Text and audio only:** the question/item string must map to the rubric’s item scale; otherwise `ErrorResult` (`ERROR_TYPE_VALIDATION`). PDF skips this (full-criterion path). |
+| **LLM grading shape** | 4 | [`GradingService`](src/grader_agent/services/grading.py) + retries in pipeline | Parses model output as JSON; **bounded retries** when the failure looks like a recoverable bad shape / invalid model output (see `_grading_internal_recoverable` in [`pipeline.py`](src/grader_agent/pipeline.py)). |
+| **Grading JSON output** | 5 | [`OutputValidationService`](src/grader_agent/services/output_validation.py) | **Deterministic, no LLM:** object with non-empty `scores_by_criterion`; each row has required keys; `criterion_name` set must **exactly** match expected criteria (from rubric metadata, or `allowed_criterion_names` for single text/audio items); `level_percentage` 0–100 (clamp + warning); `weighted_score` clamped to rubric max when known (warning if unknown max); `criterion_weight` clamped 0–100; recomputed `total_weighted_score` / `total_max_score`. On hard shape mismatch → `ErrorResult` (typically “reintentar la calificación”). |
+| **Feedback** | 6 | [`FeedbackService`](src/grader_agent/services/feedback.py) | Uses **only** the **step-5–validated** payload; if the feedback call fails, the pipeline returns `ErrorResult` (no silent fallback to raw model scores in the success object). |
+
+**Distinction:** Step **2** moderates **student-submitted text**. Step **5** validates **grading JSON** from the model (schema and numeric bounds vs the rubric). They are independent layers; output validation is **not** “layer C” of content moderation (see also the note under [Two-layer content validation](#two-layer-content-validation)).
+
+**Diagram short-circuits:** the Mermaid chart omits **step 1** failure edges (invalid audio file, unreadable PDF, empty extraction) and **step 0** failures; those return `ErrorResult` immediately. **Startup:** [`validate_llm_api_keys_for_runtime`](src/grader_agent/settings.py) in `create_app()` requires `OPENAI_API_KEY` and `OPENROUTER_API_KEY` unless the app runs in testing mode.
 
 ---
 
@@ -85,7 +134,7 @@ Configuration and paths are centralized in [`src/grader_agent/settings.py`](src/
 
 ## Grading pipeline (seven steps)
 
-The orchestrator runs **steps 0–6** in order for every request (see [`GradingPipeline.run`](src/grader_agent/pipeline.py)):
+The orchestrator runs **steps 0–6** in order for every request (see [`GradingPipeline.run`](src/grader_agent/pipeline.py)). A full gate-by-gate description (including the text/audio **item ↔ rubric** check that runs **after** step 3 and **before** step 4) is in [Validation stages (complete)](#validation-stages-complete).
 
 | Step | Name | Responsibility |
 |------|------|----------------|
@@ -93,15 +142,16 @@ The orchestrator runs **steps 0–6** in order for every request (see [`GradingP
 | **1** | Acquire plain text | Text: parse JSON `pregunta`/`respuesta`. Audio: resolve path + item, **Whisper** transcribe. PDF: **PyMuPDF** extract text (≤ 4 pages). |
 | **2** | Content validation | **Two-layer policy** on submission text (see below). May return a structured **rejection** without calling the grader. |
 | **3** | Rubric validation | Lightweight Markdown checks (headings, at least one numeric `%` weight). |
-| **4** | LLM grading | OpenRouter JSON `scores_by_criterion`; internal retries on recoverable JSON/shape failures. |
-| **5** | Output validation | Deterministic normalization: required keys, criterion names vs rubric, clamp scores to rubric maxima, totals. |
-| **6** | Feedback | OpenRouter generates Spanish student-facing `retroalimentacion` from rubric + validated grading JSON. |
+| **—** | *(text/audio only, before 4)* | Resolve the rubric item/scale for the submitted question (`escala_item_desde_rubrica`); **validation error** if the item does not match the rubric. PDF flow skips this (full criterion list grading). |
+| **4** | LLM grading | OpenRouter JSON `scores_by_criterion`; **bounded retries** on recoverable JSON/shape failures (`_grading_internal_recoverable`). |
+| **5** | Output validation | **Deterministic** checks on model output: [`OutputValidationService`](src/grader_agent/services/output_validation.py) — required row keys, exact criterion set vs rubric (or single allowed name for text/audio), clamps, recomputed totals; returns normalized payload + warnings or `ErrorResult`. |
+| **6** | Feedback | OpenRouter generates Spanish student-facing `retroalimentacion` from rubric + **step-5–validated** grading JSON only. |
 
 ---
 
 ## Two-layer content validation
 
-Applied to the **student deliverable text** (transcript or extracted PDF text), before rubric checks and grading:
+Applied to the **student deliverable text** (transcript or extracted PDF text), before rubric checks and grading. For every validation type in the product (request, content, rubric, item alignment, grading retries, **output JSON**, feedback), see [Validation stages (complete)](#validation-stages-complete).
 
 1. **Layer A (regex)** — Deterministic scan for high-confidence injection, exfiltration, obfuscation, and severe policy signals ([`guardrails/regex_layer.py`](src/grader_agent/guardrails/regex_layer.py)). No tokens; fast; may false-positive on edge academic wording (corpus-tested separately).
 2. **Layer B (LLM)** — If layer A is clean and `SKIP_LLM_VALIDATION` is not truthy, a small JSON verdict model on **OpenRouter** (`VALIDATION_LLM_MODEL`) classifies the submission using [`validacion_capa_b`](src/grader_agent/prompts/validacion_capa_b.md).

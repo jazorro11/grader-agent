@@ -6,6 +6,11 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+# Import-time chain (grading_pipeline_factory → pipeline → pdf/text) builds the
+# OpenRouter client before create_app() runs; load repo .env first.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
 from flask import Flask
 
 from app.grading_pipeline_factory import create_grading_pipeline
