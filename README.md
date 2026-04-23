@@ -27,58 +27,25 @@ It is **not** a gradebook replacement, an official LMS, or a guarantee of fair o
 
 ## Main workflows
 
-End-to-end sequence for a single grading request: **request checks → plain text → student-content policy → rubric checks → LLM scores → deterministic output validation → LLM feedback**. Batch PDF export reuses the same pipeline per file and then writes CSV.
+Single-request flow: **request → plain text → student-content policy → rubric → (text/audio only: item match) → LLM grade → validate grading JSON → feedback**. Batch PDF in the UI runs the same steps per file, then exports CSV (not shown).
 
 ```mermaid
 flowchart TD
-  subgraph inputs["Inputs"]
-    Rubric["Markdown rubric"]
-    Text["Text JSON pregunta/respuesta"]
-    Audio["Audio path + item JSON"]
-    PDF["PDF up to 4 pages"]
-  end
-
-  S0["Step 0 · Request validation<br/>delivery type, names, non-empty rubric & payload"]
-  S1["Step 1 · Plain text<br/>parse JSON · Whisper STT · PyMuPDF extract"]
-  S2["Step 2 · Content validation<br/>Layer A regex · Layer B LLM optional"]
-  Rej["GradingResult status=rejected<br/>no rubric grading call"]
-  S3["Step 3 · Rubric validation<br/>headings + numeric % weight"]
-  Br{"Text or audio?"}
-  Map["Align item to rubric scale<br/>escala_item_desde_rubrica"]
-  MapErr["ErrorResult invalid item"]
-  S4["Step 4 · LLM grading<br/>scores_by_criterion JSON · bounded retries"]
-  S4err["ErrorResult grading failed"]
-  S5["Step 5 · Output validation<br/>schema, criteria set, clamps, totals"]
-  S5err["ErrorResult output validation failed"]
-  S6["Step 6 · Feedback LLM<br/>retroalimentacion from validated JSON"]
-  FBerr["ErrorResult feedback failure"]
-  OK["GradingResult success<br/>scores + feedback"]
-  CSV["Batch UI · per-PDF pipeline · CSV export"]
-
-  Rubric --> S0
-  Text --> S0
-  Audio --> S0
-  PDF --> S0
-  S0 --> S1
-  S1 --> S2
-  S2 -->|verdict rejected| Rej
-  S2 -->|verdict clean| S3
-  Rubric --> S3
-  S3 --> Br
-  Br -->|yes| Map
-  Br -->|PDF| S4
-  Map -->|ValueError| MapErr
-  Map --> S4
-  Rubric --> S4
-  S4 -->|valid JSON payload| S5
-  S4 -->|ErrorResult| S4err
-  S5 -->|ErrorResult| S5err
-  S5 -->|normalized payload| S6
-  S6 -->|ErrorResult| FBerr
-  S6 --> OK
-  PDF -.-> CSV
-  Rubric -.-> CSV
+  IN([Rubric + submission]) --> S0[0 · Request validation]
+  S0 --> S1[1 · Plain text<br/>JSON parse · Whisper · PDF extract]
+  S1 --> S2[2 · Student text<br/>regex then optional LLM]
+  S2 -->|policy rejected| RJ[Rejected · no grading call]
+  S2 -->|clean| S3[3 · Rubric Markdown check]
+  S3 --> MOD{Modality}
+  MOD -->|text or audio| MAP[Map question to rubric item]
+  MOD -->|PDF| S4[4 · LLM grading JSON]
+  MAP --> S4
+  S4 --> S5[5 · Output validation<br/>schema · criteria · clamps]
+  S5 --> S6[6 · Feedback text]
+  S6 --> OK[Scores + feedback]
 ```
+
+Failures (`ErrorResult`, bad audio/PDF, invalid item, bad model JSON, feedback API error) are omitted; see [Validation stages (complete)](#validation-stages-complete) and the note below that table.
 
 1. **Upload rubric** → stored as `data/rubrics/rubrica_activa.md` (paths configurable).
 2. **Grade one modality** → JSON response; optional append to results log.
@@ -104,7 +71,7 @@ Every graded request follows the same gates (see [`GradingPipeline.run`](src/gra
 
 **Distinction:** Step **2** moderates **student-submitted text**. Step **5** validates **grading JSON** from the model (schema and numeric bounds vs the rubric). They are independent layers; output validation is **not** “layer C” of content moderation (see also the note under [Two-layer content validation](#two-layer-content-validation)).
 
-**Diagram short-circuits:** the Mermaid chart omits **step 1** failure edges (invalid audio file, unreadable PDF, empty extraction) and **step 0** failures; those return `ErrorResult` immediately. **Startup:** [`validate_llm_api_keys_for_runtime`](src/grader_agent/settings.py) in `create_app()` requires `OPENAI_API_KEY` and `OPENROUTER_API_KEY` unless the app runs in testing mode.
+**Startup (not in diagram):** [`validate_llm_api_keys_for_runtime`](src/grader_agent/settings.py) in `create_app()` requires `OPENAI_API_KEY` and `OPENROUTER_API_KEY` unless the app runs in testing mode.
 
 ---
 
