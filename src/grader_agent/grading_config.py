@@ -5,11 +5,12 @@ from __future__ import annotations
 import os
 from typing import Literal
 
-# Default max output tokens for chat completions (model set via GRADER_CHAT_MODEL).
+# Default max output tokens for chat completions (model set via LLM_MODEL / GRADER_CHAT_MODEL).
 _DEFAULT_MAX_COMPLETION_ESCALA = 256
 _DEFAULT_MAX_COMPLETION_PUNTAJE = 256
 _DEFAULT_MAX_COMPLETION_LISTAR = 8192
 _DEFAULT_MAX_COMPLETION_RETRO = 4096
+_DEFAULT_MAX_COMPLETION_GRADING_JSON = 1024
 
 
 def _int_env(name: str, default: int, *, minimum: int = 1) -> int:
@@ -24,7 +25,7 @@ def _int_env(name: str, default: int, *, minimum: int = 1) -> int:
     return max(minimum, v)
 
 
-CompletionKind = Literal["escala", "puntaje", "listar", "retro"]
+CompletionKind = Literal["escala", "puntaje", "listar", "retro", "validation", "grading_json"]
 
 
 def max_completion_tokens_escala() -> int:
@@ -47,6 +48,18 @@ def max_completion_tokens_retro() -> int:
     return _int_env("GRADER_MAX_COMPLETION_RETRO", _DEFAULT_MAX_COMPLETION_RETRO)
 
 
+def max_completion_tokens_grading_json() -> int:
+    """Tope de salida para JSON estructurado de calificación (``scores_by_criterion``)."""
+    return _int_env("GRADER_MAX_COMPLETION_GRADING_JSON", _DEFAULT_MAX_COMPLETION_GRADING_JSON)
+
+
+def max_completion_tokens_validation() -> int:
+    """Tope de salida para validación de contenido (JSON corto)."""
+    from grader_agent.settings import validation_max_tokens
+
+    return validation_max_tokens()
+
+
 def chat_completion_limit_kwargs(*, kind: CompletionKind) -> dict[str, int]:
     """Argumentos para client.chat.completions.create (max_completion_tokens)."""
     mapping: dict[str, int] = {
@@ -54,6 +67,8 @@ def chat_completion_limit_kwargs(*, kind: CompletionKind) -> dict[str, int]:
         "puntaje": max_completion_tokens_puntaje(),
         "listar": max_completion_tokens_listar_criterios(),
         "retro": max_completion_tokens_retro(),
+        "validation": max_completion_tokens_validation(),
+        "grading_json": max_completion_tokens_grading_json(),
     }
     if kind not in mapping:
         raise ValueError(f"kind inválido: {kind!r}")

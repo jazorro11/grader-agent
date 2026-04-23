@@ -11,15 +11,22 @@ from pathlib import Path
 from flask import Flask, current_app, jsonify, render_template, request
 from openai import OpenAIError
 
-from grader_agent.export_csv import resultados_entregables_a_csv
-from grader_agent.grading.pdf import (
-    calificar_entregable_pdf,
-    metadatos_criterios_desde_rubrica,
+from app.grading_http import (
+    build_audio_grading_request,
+    build_pdf_grading_request,
+    build_text_grading_request,
+    error_result_http_response,
+    grading_rejection_message,
+    grading_result_rejection_http_response,
+    grading_result_to_pdf_ui_dict,
+    grading_result_to_text_audio_ui_dict,
+    run_grading_request,
 )
-from grader_agent.grading.text import calificar_respuesta
+from grader_agent.export_csv import resultados_entregables_a_csv
+from grader_agent.grading.pdf import metadatos_criterios_desde_rubrica
 from grader_agent.moodle_paths import parse_carpeta_moodle
+from grader_agent.models import ErrorResult, GradingResult
 from grader_agent.settings import GraderPaths
-from grader_agent.transcription import transcribir_audio
 
 _logger = logging.getLogger(__name__)
 
@@ -54,20 +61,6 @@ def _contenido_rubrica_desde_upload(archivo):
         return None, (jsonify({"error": "El archivo no es texto UTF-8 válido"}), 400)
 
 
-def _api_error_response(exc: OpenAIError) -> tuple:
-    return (
-        jsonify(
-            {
-                "error": (
-                    "The AI grading service failed or is temporarily unavailable. "
-                    "Check your API key, quota, and network, then try again."
-                )
-            }
-        ),
-        502,
-    )
-
-
 def register_routes(app: Flask) -> None:
     """Attach all URL rules to ``app``."""
 
@@ -93,15 +86,24 @@ def register_routes(app: Flask) -> None:
         if not rubrica:
             return jsonify({"error": "Primero cargá una rúbrica"}), 400
 
-        try:
-            resultado = calificar_respuesta(rubrica, pregunta, respuesta)
-        except ValueError as e:
-            return jsonify({"error": str(e)}), 400
-        except OpenAIError as e:
-            return _api_error_response(e)
+        pipe_req = build_text_grading_request(
+            rubric=rubrica,
+            student_name=str(nombre_alumno),
+            pregunta=pregunta,
+            respuesta=respuesta,
+        )
+        out = run_grading_request(pipe_req)
+        if isinstance(out, ErrorResult):
+            return error_result_http_response(out)
+        if not isinstance(out, GradingResult):
+            return jsonify({"error": "Respuesta inválida del motor de calificación."}), 500
 
-        resultado["alumno"] = nombre_alumno
-        _guardar_resultado(nombre_alumno, resultado)
+        rej = grading_result_rejection_http_response(out)
+        if rej is not None:
+            return rej
+
+        resultado = grading_result_to_text_audio_ui_dict(out)
+        _guardar_resultado(resultado["alumno"], resultado)
         return jsonify(resultado)
 
     @app.route("/calificar-audio", methods=["POST"])
@@ -115,39 +117,40 @@ def register_routes(app: Flask) -> None:
         if not pregunta:
             return jsonify({"error": "La pregunta / ítem no puede estar vacía"}), 400
 
+        rubrica = _leer_rubrica_activa()
+        if not rubrica:
+            return jsonify({"error": "Primero cargá una rúbrica"}), 400
+
         suffix = Path(audio.filename or "").suffix or ".webm"
         fd, tmp_path = tempfile.mkstemp(suffix=suffix)
         os.close(fd)
         try:
             audio.save(tmp_path)
-            try:
-                transcripcion = transcribir_audio(tmp_path)
-            except ValueError as e:
-                return jsonify({"error": str(e)}), 400
-            except OpenAIError as e:
-                return _api_error_response(e)
+            pipe_req = build_audio_grading_request(
+                rubric=rubrica,
+                student_name=str(nombre_alumno),
+                pregunta=pregunta,
+                audio_path=tmp_path,
+            )
+            out = run_grading_request(pipe_req)
+            if isinstance(out, ErrorResult):
+                return error_result_http_response(out)
+            if not isinstance(out, GradingResult):
+                return jsonify({"error": "Respuesta inválida del motor de calificación."}), 500
+
+            rej = grading_result_rejection_http_response(out)
+            if rej is not None:
+                return rej
+
+            resultado = grading_result_to_text_audio_ui_dict(out)
+            _guardar_resultado(resultado["alumno"], resultado)
+            return jsonify(resultado)
         finally:
             if os.path.isfile(tmp_path):
                 try:
                     os.remove(tmp_path)
                 except OSError:
                     pass
-
-        rubrica = _leer_rubrica_activa()
-        if not rubrica:
-            return jsonify({"error": "Primero cargá una rúbrica"}), 400
-
-        try:
-            resultado = calificar_respuesta(rubrica, pregunta, transcripcion)
-        except ValueError as e:
-            return jsonify({"error": str(e)}), 400
-        except OpenAIError as e:
-            return _api_error_response(e)
-
-        resultado["alumno"] = nombre_alumno
-        resultado["transcripcion"] = transcripcion
-        _guardar_resultado(nombre_alumno, resultado)
-        return jsonify(resultado)
 
     @app.route("/resultados", methods=["GET"])
     def ver_resultados():
@@ -192,21 +195,30 @@ def register_routes(app: Flask) -> None:
         os.close(fd)
         try:
             pdf.save(ruta_pdf)
-            try:
-                resultado = calificar_entregable_pdf(rubrica, ruta_pdf, nombre_alumno)
-            except ValueError as e:
-                return jsonify({"error": str(e)}), 400
-            except OpenAIError as e:
-                return _api_error_response(e)
+            pipe_req = build_pdf_grading_request(
+                rubric=rubrica,
+                student_name=nombre_alumno,
+                pdf_path=ruta_pdf,
+            )
+            out = run_grading_request(pipe_req)
+            if isinstance(out, ErrorResult):
+                return error_result_http_response(out)
+            if not isinstance(out, GradingResult):
+                return jsonify({"error": "Respuesta inválida del motor de calificación."}), 500
+
+            rej = grading_result_rejection_http_response(out)
+            if rej is not None:
+                return rej
+
+            resultado = grading_result_to_pdf_ui_dict(out)
+            _guardar_resultado(nombre_alumno, resultado)
+            return jsonify(resultado)
         finally:
             if os.path.isfile(ruta_pdf):
                 try:
                     os.remove(ruta_pdf)
                 except OSError:
                     pass
-
-        _guardar_resultado(nombre_alumno, resultado)
-        return jsonify(resultado)
 
     @app.route("/calificar-carpeta-entregables", methods=["POST"])
     def calificar_carpeta_entregables():
@@ -222,13 +234,16 @@ def register_routes(app: Flask) -> None:
 
         n = len(pdfs)
         if len(alumnos) != n:
-            return jsonify(
-                {
-                    "error": (
-                        "La cantidad de valores «alumno» no coincide con la de archivos PDF"
-                    )
-                }
-            ), 400
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "La cantidad de valores «alumno» no coincide con la de archivos PDF"
+                        )
+                    }
+                ),
+                400,
+            )
 
         def _pad(lst: list[str], length: int) -> list[str]:
             out = list(lst)
@@ -249,18 +264,31 @@ def register_routes(app: Flask) -> None:
             metadatos = metadatos_criterios_desde_rubrica(rubrica)
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
-        except OpenAIError as e:
-            return _api_error_response(e)
+        except OpenAIError:
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "The AI grading service failed or is temporarily unavailable. "
+                            "Check your API key, quota, and network, then try again."
+                        )
+                    }
+                ),
+                502,
+            )
 
         if not metadatos:
-            return jsonify(
-                {
-                    "error": (
-                        "No se identificaron criterios evaluables en la rúbrica. "
-                        "Revisá que el .md describa ítems o criterios con puntaje."
-                    )
-                }
-            ), 400
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "No se identificaron criterios evaluables en la rúbrica. "
+                            "Revisá que el .md describa ítems o criterios con puntaje."
+                        )
+                    }
+                ),
+                400,
+            )
         criterios = [m["criterio"] for m in metadatos]
 
         resultados: list[dict] = []
@@ -281,35 +309,51 @@ def register_routes(app: Flask) -> None:
             if not nombre_completo:
                 nombre_completo = alumno
 
-            resultado = None
+            resultado_dict: dict | None = None
             fd, ruta_tmp = tempfile.mkstemp(suffix=".pdf")
             os.close(fd)
             try:
                 pdf.save(ruta_tmp)
                 try:
-                    resultado = calificar_entregable_pdf(
-                        rubrica, ruta_tmp, alumno, metadatos_criterios=metadatos
+                    pipe_req = build_pdf_grading_request(
+                        rubric=rubrica,
+                        student_name=alumno,
+                        pdf_path=ruta_tmp,
                     )
-                except ValueError as e:
-                    errores.append(
-                        {
-                            "alumno": alumno,
-                            "carpeta_origen": carpeta,
-                            "error": str(e),
-                        }
-                    )
-                except OpenAIError as e:
-                    errores.append(
-                        {
-                            "alumno": alumno,
-                            "carpeta_origen": carpeta,
-                            "error": str(e),
-                        }
-                    )
+                    out = run_grading_request(pipe_req)
+                    if isinstance(out, ErrorResult):
+                        errores.append(
+                            {
+                                "alumno": alumno,
+                                "carpeta_origen": carpeta,
+                                "error": out.message,
+                            }
+                        )
+                    elif isinstance(out, GradingResult):
+                        rmsg = grading_rejection_message(out)
+                        if rmsg is not None:
+                            errores.append(
+                                {
+                                    "alumno": alumno,
+                                    "carpeta_origen": carpeta,
+                                    "error": rmsg,
+                                }
+                            )
+                        else:
+                            resultado_dict = grading_result_to_pdf_ui_dict(
+                                out,
+                                criterios_order=criterios,
+                            )
+                    else:
+                        errores.append(
+                            {
+                                "alumno": alumno,
+                                "carpeta_origen": carpeta,
+                                "error": "Respuesta inválida del motor de calificación.",
+                            }
+                        )
                 except Exception:
-                    _logger.exception(
-                        "Unexpected error while grading PDF for alumno=%s", alumno
-                    )
+                    _logger.exception("Unexpected error while grading PDF for alumno=%s", alumno)
                     errores.append(
                         {
                             "alumno": alumno,
@@ -327,16 +371,16 @@ def register_routes(app: Flask) -> None:
                     except OSError:
                         pass
 
-            if resultado is None:
+            if resultado_dict is None:
                 continue
 
-            resultado["nombre_completo"] = nombre_completo
-            resultado["id_estudiante"] = id_est
-            resultado["carpeta_origen"] = carpeta
-            resultado["archivo_pdf"] = archivo_nom
+            resultado_dict["nombre_completo"] = nombre_completo
+            resultado_dict["id_estudiante"] = id_est
+            resultado_dict["carpeta_origen"] = carpeta
+            resultado_dict["archivo_pdf"] = archivo_nom
 
-            _guardar_resultado(alumno, resultado)
-            resultados.append(resultado)
+            _guardar_resultado(alumno, resultado_dict)
+            resultados.append(resultado_dict)
 
         csv_text = resultados_entregables_a_csv(resultados, criterios)
         return jsonify(
@@ -350,8 +394,6 @@ def register_routes(app: Flask) -> None:
     @app.errorhandler(413)
     def _payload_demasiado_grande(_e):
         return (
-            jsonify(
-                {"error": "El archivo supera el tamaño máximo permitido (16 MB)"}
-            ),
+            jsonify({"error": "El archivo supera el tamaño máximo permitido (16 MB)"}),
             413,
         )

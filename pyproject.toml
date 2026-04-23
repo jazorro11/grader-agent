@@ -16,7 +16,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0.0"]
+dev = [
+  "pytest>=8.0.0",
+  "black>=24.0.0",
+  "flake8>=7.0.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -27,3 +31,10 @@ grader_agent = ["prompts/*.md"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+markers = [
+  "integration: pruebas opcionales que llaman APIs externas (LLM, etc.)",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]

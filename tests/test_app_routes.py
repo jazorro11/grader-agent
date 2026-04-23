@@ -3,10 +3,17 @@ import json
 from io import BytesIO
 from unittest.mock import patch
 
-import pytest
 from werkzeug.datastructures import MultiDict
 
 import app.routes as routes_module
+from grader_agent.models import (
+    ERROR_TYPE_VALIDATION,
+    CriterionScore,
+    DeliveryType,
+    GradingRequest,
+    GradingResult,
+    ErrorResult,
+)
 from tests.conftest import write_rubrica_parcial
 
 
@@ -57,17 +64,21 @@ def test_calificar_texto_sin_content_type_json_devuelve_400(app_client):
     assert "JSON" in rv.get_json()["error"]
 
 
-@patch.object(routes_module, "calificar_respuesta")
-def test_calificar_texto_camino_feliz_guarda_resultado(
-    mock_calificar, app_client
-):
+@patch.object(routes_module, "run_grading_request")
+def test_calificar_texto_camino_feliz_guarda_resultado(mock_run, app_client):
     write_rubrica_parcial(app_client["rubrics"])
-    mock_calificar.return_value = {
-        "pregunta": "P1",
-        "puntaje_obtenido": 7,
-        "puntaje_maximo": 10,
-        "retroalimentacion": "Bien",
-    }
+    mock_run.return_value = GradingResult(
+        scores_by_criterion={"P1": CriterionScore(7.0, 10.0, "")},
+        total_score=7.0,
+        total_max_score=10.0,
+        feedback="Bien",
+        student_name="Luis",
+        item_label="P1",
+        transcription=None,
+        deliverable_kind="text",
+        status="success",
+        rejection=None,
+    )
     c = app_client["client"]
     rv = c.post(
         "/calificar-texto",
@@ -81,7 +92,7 @@ def test_calificar_texto_camino_feliz_guarda_resultado(
     data = rv.get_json()
     assert data["alumno"] == "Luis"
     assert data["puntaje_obtenido"] == 7
-    mock_calificar.assert_called_once()
+    mock_run.assert_called_once()
 
     ruta = app_client["results"] / "resultados.json"
     assert ruta.is_file()
@@ -101,9 +112,8 @@ def test_calificar_audio_sin_archivo_devuelve_400(app_client):
     assert "audio" in rv.get_json()["error"].lower()
 
 
-@patch.object(routes_module, "transcribir_audio")
-def test_calificar_audio_sin_rubrica_devuelve_400(mock_tr, app_client):
-    mock_tr.return_value = "transcripción simulada"
+@patch.object(routes_module, "run_grading_request")
+def test_calificar_audio_sin_rubrica_devuelve_400(mock_run, app_client):
     c = app_client["client"]
     audio = (BytesIO(b"fake"), "grabacion.webm")
     rv = c.post(
@@ -112,20 +122,24 @@ def test_calificar_audio_sin_rubrica_devuelve_400(mock_tr, app_client):
         content_type="multipart/form-data",
     )
     assert rv.status_code == 400
-    mock_tr.assert_called_once()
+    mock_run.assert_not_called()
 
 
-@patch.object(routes_module, "calificar_respuesta")
-@patch.object(routes_module, "transcribir_audio")
-def test_calificar_audio_camino_feliz(mock_tr, mock_cal, app_client):
+@patch.object(routes_module, "run_grading_request")
+def test_calificar_audio_camino_feliz(mock_run, app_client):
     write_rubrica_parcial(app_client["rubrics"])
-    mock_tr.return_value = "lo que dijo el alumno"
-    mock_cal.return_value = {
-        "pregunta": "P1",
-        "puntaje_obtenido": 5,
-        "puntaje_maximo": 10,
-        "retroalimentacion": "Ok",
-    }
+    mock_run.return_value = GradingResult(
+        scores_by_criterion={"P1": CriterionScore(5.0, 10.0, "")},
+        total_score=5.0,
+        total_max_score=10.0,
+        feedback="Ok",
+        student_name="Pepe",
+        item_label="P1",
+        transcription="lo que dijo el alumno",
+        deliverable_kind="audio",
+        status="success",
+        rejection=None,
+    )
     c = app_client["client"]
     rv = c.post(
         "/calificar-audio",
@@ -204,16 +218,22 @@ def test_calificar_entregable_sin_rubrica_devuelve_400(app_client):
     assert "rúbrica" in rv.get_json()["error"].lower()
 
 
-@patch.object(routes_module, "calificar_entregable_pdf")
-def test_calificar_entregable_camino_feliz(mock_pdf, app_client):
+@patch.object(routes_module, "run_grading_request")
+def test_calificar_entregable_camino_feliz(mock_run, app_client):
     write_rubrica_parcial(app_client["rubrics"])
-    mock_pdf.return_value = {
-        "alumno": "María",
-        "tipo": "entregable_pdf",
-        "criterios": [],
-        "total_obtenido": 10,
-        "total_maximo": 10,
-    }
+    mock_run.return_value = GradingResult(
+        scores_by_criterion={},
+        total_score=10.0,
+        total_max_score=10.0,
+        feedback="",
+        student_name="María",
+        item_label=None,
+        transcription=None,
+        deliverable_kind="pdf_deliverable",
+        archivo_pdf=None,
+        status="success",
+        rejection=None,
+    )
     rv = app_client["client"].post(
         "/calificar-entregable",
         data={
@@ -223,16 +243,22 @@ def test_calificar_entregable_camino_feliz(mock_pdf, app_client):
         content_type="multipart/form-data",
     )
     assert rv.status_code == 200
-    mock_pdf.assert_called_once()
-    args, _kwargs = mock_pdf.call_args
-    assert args[0]  # rubrica no vacía
-    assert args[2] == "María"
+    mock_run.assert_called_once()
+    req = mock_run.call_args[0][0]
+    assert isinstance(req, GradingRequest)
+    assert req.delivery_type == DeliveryType.PDF_DELIVERABLE
+    assert req.student_name == "María"
+    assert "## Rubrica" in req.rubric_content
 
 
-@patch.object(routes_module, "calificar_entregable_pdf")
-def test_calificar_entregable_valueerror_devuelve_400(mock_pdf, app_client):
+@patch.object(routes_module, "run_grading_request")
+def test_calificar_entregable_valueerror_devuelve_400(mock_run, app_client):
     write_rubrica_parcial(app_client["rubrics"])
-    mock_pdf.side_effect = ValueError("PDF demasiado largo")
+    mock_run.return_value = ErrorResult(
+        error_type=ERROR_TYPE_VALIDATION,
+        message="PDF demasiado largo",
+        detail=None,
+    )
     rv = app_client["client"].post(
         "/calificar-entregable",
         data={
@@ -253,13 +279,19 @@ def test_resultados_vacio_si_no_hay_archivo(app_client):
 
 def test_resultados_devuelve_lista_guardada(app_client):
     write_rubrica_parcial(app_client["rubrics"])
-    with patch.object(routes_module, "calificar_respuesta") as mock_cal:
-        mock_cal.return_value = {
-            "pregunta": "P",
-            "puntaje_obtenido": 1,
-            "puntaje_maximo": 2,
-            "retroalimentacion": "x",
-        }
+    with patch.object(routes_module, "run_grading_request") as mock_run:
+        mock_run.return_value = GradingResult(
+            scores_by_criterion={"P": CriterionScore(1.0, 2.0, "")},
+            total_score=1.0,
+            total_max_score=2.0,
+            feedback="x",
+            student_name="A",
+            item_label="P",
+            transcription=None,
+            deliverable_kind="text",
+            status="success",
+            rejection=None,
+        )
         app_client["client"].post(
             "/calificar-texto",
             json={"pregunta": "P", "respuesta": "r", "alumno": "A"},
@@ -321,28 +353,32 @@ def test_calificar_carpeta_sin_criterios_en_rubrica_devuelve_400(mock_meta, app_
     mock_meta.assert_called_once()
 
 
-@patch.object(routes_module, "calificar_entregable_pdf")
+@patch.object(routes_module, "run_grading_request")
 @patch.object(routes_module, "metadatos_criterios_desde_rubrica")
-def test_calificar_carpeta_valueerror_en_un_pdf_deja_resto_ok(
-    mock_meta, mock_pdf, app_client
-):
+def test_calificar_carpeta_valueerror_en_un_pdf_deja_resto_ok(mock_meta, mock_run, app_client):
     write_rubrica_parcial(app_client["rubrics"])
     mock_meta.return_value = [{"criterio": "C1", "puntaje_maximo": 2}]
-    fila_ok = {
-        "alumno": "BOB",
-        "tipo": "entregable_pdf",
-        "criterios": [
-            {
-                "criterio": "C1",
-                "puntaje_obtenido": 1,
-                "puntaje_maximo": 2,
-                "retroalimentacion": "ok",
-            }
-        ],
-        "total_obtenido": 1,
-        "total_maximo": 2,
-    }
-    mock_pdf.side_effect = [ValueError("pdf roto"), copy.deepcopy(fila_ok)]
+    gr_ok = GradingResult(
+        scores_by_criterion={"C1": CriterionScore(1.0, 2.0, "")},
+        total_score=1.0,
+        total_max_score=2.0,
+        feedback="ok",
+        student_name="BOB",
+        item_label=None,
+        transcription=None,
+        deliverable_kind="pdf_deliverable",
+        archivo_pdf=None,
+        status="success",
+        rejection=None,
+    )
+    mock_run.side_effect = [
+        ErrorResult(
+            error_type=ERROR_TYPE_VALIDATION,
+            message="pdf roto",
+            detail=None,
+        ),
+        copy.deepcopy(gr_ok),
+    ]
 
     md = MultiDict()
     md.add("alumno", "ANA")
@@ -366,26 +402,42 @@ def test_calificar_carpeta_valueerror_en_un_pdf_deja_resto_ok(
     assert "pdf roto" in body["errores"][0]["error"]
 
 
-@patch.object(routes_module, "calificar_entregable_pdf")
+@patch.object(routes_module, "run_grading_request")
 @patch.object(routes_module, "metadatos_criterios_desde_rubrica")
-def test_calificar_carpeta_camino_feliz(mock_meta, mock_pdf, app_client):
+def test_calificar_carpeta_camino_feliz(mock_meta, mock_run, app_client):
     write_rubrica_parcial(app_client["rubrics"])
     mock_meta.return_value = [{"criterio": "Criterio uno", "puntaje_maximo": 10}]
-    fila = {
-        "alumno": "ANA (111111)",
-        "tipo": "entregable_pdf",
-        "criterios": [
-            {
-                "criterio": "Criterio uno",
-                "puntaje_obtenido": 5,
-                "puntaje_maximo": 10,
-                "retroalimentacion": "bien",
-            }
-        ],
-        "total_obtenido": 5,
-        "total_maximo": 10,
-    }
-    mock_pdf.side_effect = [copy.deepcopy(fila), copy.deepcopy(fila)]
+    gr_ana = GradingResult(
+        scores_by_criterion={
+            "Criterio uno": CriterionScore(5.0, 10.0, "bien"),
+        },
+        total_score=5.0,
+        total_max_score=10.0,
+        feedback="bien",
+        student_name="ANA (111111)",
+        item_label=None,
+        transcription=None,
+        deliverable_kind="pdf_deliverable",
+        archivo_pdf=None,
+        status="success",
+        rejection=None,
+    )
+    gr_bob = GradingResult(
+        scores_by_criterion={
+            "Criterio uno": CriterionScore(5.0, 10.0, "bien"),
+        },
+        total_score=5.0,
+        total_max_score=10.0,
+        feedback="bien",
+        student_name="BOB (222222)",
+        item_label=None,
+        transcription=None,
+        deliverable_kind="pdf_deliverable",
+        archivo_pdf=None,
+        status="success",
+        rejection=None,
+    )
+    mock_run.side_effect = [copy.deepcopy(gr_ana), copy.deepcopy(gr_bob)]
     md = MultiDict()
     md.add("alumno", "ANA (111111)")
     md.add("nombre_completo", "ANA")
@@ -411,10 +463,7 @@ def test_calificar_carpeta_camino_feliz(mock_meta, mock_pdf, app_client):
     assert body["csv"].startswith("\ufeff")
     assert "111111" in body["csv"]
     mock_meta.assert_called_once()
-    assert mock_pdf.call_count == 2
-    assert mock_pdf.call_args_list[0].kwargs["metadatos_criterios"] == [
-        {"criterio": "Criterio uno", "puntaje_maximo": 10}
-    ]
+    assert mock_run.call_count == 2
 
     ruta = app_client["results"] / "resultados.json"
     guardados = json.loads(ruta.read_text(encoding="utf-8"))

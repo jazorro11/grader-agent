@@ -2,6 +2,7 @@
 import os
 
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-fake-for-pytest")
+os.environ.setdefault("OPENROUTER_API_KEY", "sk-test-fake-for-pytest-openrouter")
 
 import pytest
 

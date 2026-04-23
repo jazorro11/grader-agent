@@ -8,9 +8,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask
 
+from app.grading_pipeline_factory import create_grading_pipeline
 from app.routes import register_routes
 from grader_agent.http_logging import configure_logging, register_http_logging
-from grader_agent.settings import GraderPaths, validate_openai_api_key_for_runtime
+from grader_agent.settings import GraderPaths, validate_llm_api_keys_for_runtime
 
 
 def create_app(*, testing: bool | None = None) -> Flask:
@@ -18,7 +19,7 @@ def create_app(*, testing: bool | None = None) -> Flask:
     Build and configure the Flask app.
 
     Args:
-        testing: If True, skip OpenAI API key validation (pytest). If None, uses
+        testing: If True, skip LLM API key validation (pytest). If None, uses
             ``app.testing`` after it is set from ``TESTING`` env when present.
     """
     load_dotenv()
@@ -36,13 +37,15 @@ def create_app(*, testing: bool | None = None) -> Flask:
             "yes",
         )
 
-    validate_openai_api_key_for_runtime(testing=bool(app.config["TESTING"]))
+    validate_llm_api_keys_for_runtime(testing=bool(app.config["TESTING"]))
 
     paths = GraderPaths.from_env()
     paths.ensure_directories()
     app.config["GRADER_PATHS"] = paths
 
     app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
+
+    app.config["GRADING_PIPELINE"] = create_grading_pipeline()
 
     register_http_logging(app)
     register_routes(app)

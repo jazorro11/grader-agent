@@ -1,5 +1,5 @@
-# Script manual de integración: llama a la API real de OpenAI.
-# Requiere OPENAI_API_KEY en el entorno. No forma parte de la suite pytest.
+# Script manual de integración: calificación vía OpenRouter.
+# Requiere OPENROUTER_API_KEY (chat) en el entorno. No forma parte de la suite pytest.
 # Uso (desde la raíz del repo): venv\Scripts\python scripts\manual_test_grader.py
 
 from grader_agent.grading.text import calificar_respuesta
