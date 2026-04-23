@@ -237,12 +237,36 @@ class _FakeDocLargo:
         self.closed = True
 
 
-def test_extraer_texto_pdf_rechaza_mas_de_cuatro_paginas():
+def test_extraer_texto_pdf_rechaza_mas_de_cuatro_paginas(monkeypatch):
+    monkeypatch.setenv("GRADER_PDF_MAX_PAGES", "4")
     largo = _FakeDocLargo()
     with patch("grader_agent.services.pdf_extraction.fitz.open", return_value=largo):
         with pytest.raises(ValueError, match="5 páginas"):
             pdf_grader.extraer_texto_pdf("cualquier.pdf")
     assert largo.closed
+
+
+def test_extraer_texto_pdf_acepta_mas_paginas_si_limite_env_alto(monkeypatch):
+    monkeypatch.setenv("GRADER_PDF_MAX_PAGES", "10")
+
+    class _FakePage:
+        def get_text(self):
+            return "x"
+
+    class _FakeDocSeis:
+        def __len__(self):
+            return 6
+
+        def __iter__(self):
+            return iter([_FakePage() for _ in range(6)])
+
+        def close(self):
+            pass
+
+    doc = _FakeDocSeis()
+    with patch("grader_agent.services.pdf_extraction.fitz.open", return_value=doc):
+        texto = pdf_grader.extraer_texto_pdf("informe.pdf")
+    assert texto == "\n".join(["x"] * 6)
 
 
 def test_extraer_texto_pdf_concatena_texto_hasta_cuatro_paginas():
