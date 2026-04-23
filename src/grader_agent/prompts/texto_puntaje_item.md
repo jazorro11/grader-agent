@@ -1,3 +1,9 @@
+---
+version: "1.1.0"
+date: "2026-04-22"
+changelog: "Front matter; encabezado de seguridad breve (complementa la base compuesta)."
+---
+
 ## Puntaje de un ítem de parcial (solo número)
 
 Entrada: rúbrica, pregunta/ítem a calificar, respuesta del alumno, y **puntaje máximo canónico** (fijo en el mensaje de usuario).

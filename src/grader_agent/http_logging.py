@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import os
 import time
+
+from grader_agent.logging_config import configure_root_logging
 from typing import TYPE_CHECKING
 
 from flask import Response
@@ -17,6 +19,7 @@ _ERR = logging.getLogger("grader_agent.errors")
 
 
 def _post_rule_paths(app: Flask) -> list[str]:
+    """Sorted list of POST ``rule`` strings (for 404 hints without dumping bodies)."""
     return sorted(
         {
             str(r.rule)
@@ -33,20 +36,8 @@ def _request_debug_sin_query(request) -> str:
 
 
 def configure_logging() -> None:
-    """Lee LOG_LEVEL del entorno (default INFO) y configura el formateo básico."""
-    raw = os.environ.get("LOG_LEVEL", "INFO").strip().upper() or "INFO"
-    level = getattr(logging, raw, None)
-    if not isinstance(level, int):
-        level = logging.INFO
-    root = logging.getLogger()
-    if not root.handlers:
-        logging.basicConfig(
-            level=level,
-            format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
-    else:
-        root.setLevel(level)
+    """Configura el root logger (vía ``logging_config``) y opciones de Werkzeug."""
+    configure_root_logging()
     if os.environ.get("WERKZEUG_LOG_QUIET", "").lower() in ("1", "true", "yes"):
         logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
@@ -65,9 +56,7 @@ def register_http_logging(app: Flask) -> None:
         from flask import g, request
 
         start = getattr(g, "_grader_req_t0", None)
-        elapsed_ms = (
-            (time.perf_counter() - start) * 1000 if start is not None else -1.0
-        )
+        elapsed_ms = (time.perf_counter() - start) * 1000 if start is not None else -1.0
         _LOGGER.info(
             "%s %s -> %s (%.1f ms)",
             request.method,

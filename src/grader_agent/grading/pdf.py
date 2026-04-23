@@ -4,21 +4,20 @@ from __future__ import annotations
 
 import os
 
-import fitz  # pymupdf
-
 from grader_agent.grading.llm_json import json_object_from_message_content
 from grader_agent.grading.rubric_blocks import bloque_niveles_usuario
 from grader_agent.grading.score_utils import ajustar_puntaje_a_niveles_discretos
 from grader_agent.grading_config import retro_temperature, score_temperature
 from grader_agent.llm.client_calls import chat_completion_json_content
-from grader_agent.openai_client import get_openai_client
+from grader_agent.llm.clients import get_default_openrouter_chat_client
+from grader_agent.settings import chat_model
 from grader_agent.prompts_loader import (
     system_prompt_pdf_listar_criterios,
     system_prompt_pdf_puntaje_criterio,
     system_prompt_pdf_retro_criterio,
 )
 
-client = get_openai_client()
+client = get_default_openrouter_chat_client()
 
 
 def extraer_texto_pdf(ruta_pdf: str) -> str:
@@ -28,27 +27,13 @@ def extraer_texto_pdf(ruta_pdf: str) -> str:
     Raises:
         ValueError: if the file is not a valid PDF, cannot be read, or exceeds 4 pages.
     """
-    try:
-        doc = fitz.open(ruta_pdf)
-    except Exception as exc:
-        raise ValueError(
-            "The file could not be read as a PDF (invalid, corrupted, or not a PDF). "
-            "Export or save the submission again and retry."
-        ) from exc
+    from grader_agent.models import ErrorResult
+    from grader_agent.services.pdf_extraction import PDFExtractionService
 
-    try:
-        if len(doc) > 4:
-            raise ValueError(
-                f"El PDF tiene {len(doc)} páginas. El máximo permitido es 4."
-            )
-
-        texto = ""
-        for pagina in doc:
-            texto += pagina.get_text()
-
-        return texto.strip()
-    finally:
-        doc.close()
+    out = PDFExtractionService().extract(ruta_pdf)
+    if isinstance(out, ErrorResult):
+        raise ValueError(out.message)
+    return out
 
 
 def _parse_metadatos_criterios_payload(data: dict) -> list[dict]:
@@ -97,6 +82,7 @@ def metadatos_criterios_desde_rubrica(rubrica_md: str) -> list[dict]:
     user_message = f"RÚBRICA (md):\n\n{rubrica_md}"
     raw = chat_completion_json_content(
         client,
+        model=chat_model(),
         system=system_prompt_pdf_listar_criterios(),
         user=user_message,
         temperature=0,
@@ -136,6 +122,7 @@ MÁX canónico (techo; no reinterpretes; el sistema fija el máximo en salida): 
 
     raw_p = chat_completion_json_content(
         client,
+        model=chat_model(),
         system=system_prompt_pdf_puntaje_criterio(),
         user=user_puntaje,
         temperature=score_temperature(),
@@ -160,6 +147,7 @@ ENTREGABLE:
 
     raw_r = chat_completion_json_content(
         client,
+        model=chat_model(),
         system=system_prompt_pdf_retro_criterio(),
         user=user_retro,
         temperature=retro_temperature(),

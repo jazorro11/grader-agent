@@ -42,6 +42,8 @@ def test_chat_completion_limit_kwargs_defaults(monkeypatch):
         "GRADER_MAX_COMPLETION_PUNTAJE",
         "GRADER_MAX_COMPLETION_LISTAR",
         "GRADER_MAX_COMPLETION_RETRO",
+        "GRADER_MAX_COMPLETION_GRADING_JSON",
+        "VALIDATION_MAX_TOKENS",
     ):
         monkeypatch.delenv(name, raising=False)
     expected_tokens = {
@@ -49,6 +51,8 @@ def test_chat_completion_limit_kwargs_defaults(monkeypatch):
         "puntaje": 256,
         "listar": 8192,
         "retro": 4096,
+        "validation": 2048,
+        "grading_json": 1024,
     }
     for kind, n in expected_tokens.items():
         assert grading_config.chat_completion_limit_kwargs(kind=kind) == {

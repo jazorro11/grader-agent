@@ -1,8 +1,6 @@
 import logging
 import re
 
-import pytest
-
 from grader_agent.http_logging import configure_logging
 
 

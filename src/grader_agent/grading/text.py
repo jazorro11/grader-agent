@@ -7,14 +7,15 @@ from grader_agent.grading.rubric_blocks import bloque_niveles_usuario
 from grader_agent.grading.score_utils import ajustar_puntaje_a_niveles_discretos
 from grader_agent.grading_config import retro_temperature, score_temperature
 from grader_agent.llm.client_calls import chat_completion_json_content
-from grader_agent.openai_client import get_openai_client
+from grader_agent.llm.clients import get_default_openrouter_chat_client
+from grader_agent.settings import chat_model
 from grader_agent.prompts_loader import (
     system_prompt_texto_escala_item,
     system_prompt_texto_puntaje_item,
     system_prompt_texto_retro_item,
 )
 
-client = get_openai_client()
+client = get_default_openrouter_chat_client()
 
 
 def escala_item_desde_rubrica(rubrica_md: str, pregunta: str) -> dict:
@@ -28,6 +29,7 @@ def escala_item_desde_rubrica(rubrica_md: str, pregunta: str) -> dict:
 """
     raw = chat_completion_json_content(
         client,
+        model=chat_model(),
         system=system_prompt_texto_escala_item(),
         user=user_message,
         temperature=0,
@@ -89,6 +91,7 @@ MÁX canónico (techo; no reinterpretes; el sistema fija el máximo en salida): 
 
     raw_p = chat_completion_json_content(
         client,
+        model=chat_model(),
         system=system_prompt_texto_puntaje_item(),
         user=user_puntaje,
         temperature=score_temperature(),
@@ -112,6 +115,7 @@ RESPUESTA: {respuesta_alumno}
 
     raw_r = chat_completion_json_content(
         client,
+        model=chat_model(),
         system=system_prompt_texto_retro_item(),
         user=user_retro,
         temperature=retro_temperature(),

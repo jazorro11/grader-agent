@@ -1,3 +1,9 @@
+---
+version: "1.1.0"
+date: "2026-04-22"
+changelog: "Front matter; recordatorio de seguridad (complementa la base compuesta)."
+---
+
 ## Puntaje de un criterio sobre entregable (solo número)
 
 Entrada: rúbrica Markdown, texto del entregable, criterio a evaluar, y el **puntaje máximo canónico** que te da el usuario (no lo modifiques ni reinterpretes).
