@@ -174,7 +174,7 @@
   <p class="eyebrow">Multimodal AI grading assistant</p>
   <h1>Grader Agent</h1>
   <p class="lede">
-    Portfolio demo for educators: upload a Markdown rubric, then grade <strong>PDF submissions</strong> (text extracted, up to four pages),
+    Portfolio demo for educators: upload a Markdown rubric, then grade <strong>PDF submissions</strong> (text extracted, up to {{ pdf_max_pages }} {% if pdf_max_pages == 1 %}page{% else %}pages{% endif %}),
     or single <strong>text / audio</strong> answers (audio is transcribed before scoring). Outputs are <strong>suggestions</strong> — teachers remain responsible for final marks and fairness.
   </p>
 </header>
@@ -197,7 +197,7 @@
     </div>
     <div class="zona">
       <h3>Entregable del alumno</h3>
-      <p class="hint">PDF del estudiante (máx. 4 páginas). Se evalúa el texto extraído del archivo.</p>
+      <p class="hint">PDF del estudiante (máx. {{ pdf_max_pages }} {% if pdf_max_pages == 1 %}página{% else %}páginas{% endif %}). Se evalúa el texto extraído del archivo.</p>
       <input type="text" id="nombre-alumno-entregable" placeholder="Nombre del alumno">
       <input type="file" id="archivo-pdf-entregable" accept=".pdf">
       <button type="button" class="btn-success" onclick="calificarEntregable()">Evaluar entregable con la rúbrica</button>

@@ -76,3 +76,23 @@ def test_chat_completion_limit_kwargs_kind_invalid():
 def test_max_completion_tokens_env_no_numerico_usa_default(monkeypatch):
     monkeypatch.setenv("GRADER_MAX_COMPLETION_ESCALA", "x")
     assert grading_config.max_completion_tokens_escala() == 256
+
+
+def test_pdf_max_pages_default(monkeypatch):
+    monkeypatch.delenv("GRADER_PDF_MAX_PAGES", raising=False)
+    assert grading_config.pdf_max_pages() == 4
+
+
+def test_pdf_max_pages_desde_env(monkeypatch):
+    monkeypatch.setenv("GRADER_PDF_MAX_PAGES", "12")
+    assert grading_config.pdf_max_pages() == 12
+
+
+def test_pdf_max_pages_env_no_numerico_usa_default(monkeypatch):
+    monkeypatch.setenv("GRADER_PDF_MAX_PAGES", "x")
+    assert grading_config.pdf_max_pages() == 4
+
+
+def test_pdf_max_pages_minimum_uno(monkeypatch):
+    monkeypatch.setenv("GRADER_PDF_MAX_PAGES", "0")
+    assert grading_config.pdf_max_pages() == 1

@@ -1,103 +1,76 @@
-# Rúbrica de Calificación — Taller: Dispositivo TinyML
+# Rúbrica de calificación detallada  
+**Taller Técnico: Análisis de Resolución, Cuantización y Relación Señal-Ruido (SNR) con ESP32**
 
-**Asignatura:** Sistemas de Adquisición de Datos  
-**Programa:** Ingeniería de Datos e Inteligencia Artificial — Universidad Santo Tomás  
-**Semestre:** Primero
+Esta rúbrica está organizada para su uso en Moodle con 4 niveles de desempeño y los siguientes puntajes por criterio:
 
----
+| Criterio | Nivel 1 | Nivel 2 | Nivel 3 | Nivel 4 |
+|---|---:|---:|---:|---:|
+| Cálculos teóricos: LSB y SNR | 0 | 4 | 6 | 8 |
+| Análisis experimental del error | 0 | 3 | 4 | 6 |
+| Conclusiones y razonamiento | 0 | 1 | 2 | 3 |
+| Formato IEEE y gráficas | 0 | 1 | 2 | 3 |
 
-## Escala de valoración
+## 1. Cálculos teóricos: LSB y SNR
 
-| Nivel | Porcentaje | Descripción general |
-|-------|-----------|---------------------|
-| **Nivel 1** | 25% | Insuficiente — No cumple o cumple de forma muy superficial |
-| **Nivel 2** | 50% | Básico — Cumple parcialmente, con vacíos importantes |
-| **Nivel 3** | 75% | Bueno — Cumple satisfactoriamente con observaciones menores |
-| **Nivel 4** | 100% | Excelente — Cumple a cabalidad con profundidad y rigor |
+- **Nivel 1 — 0 puntos**  
+  No aplica correctamente las fórmulas de LSB y SNR, omite varias resoluciones o presenta resultados incompatibles con la teoría del taller. Hay errores conceptuales importantes, ausencia de procedimiento o uso incorrecto de unidades.
 
----
+- **Nivel 2 — 4 puntos**  
+  Presenta cálculos parciales o incompletos del LSB y/o del SNR. Hay errores en una o más resoluciones, en la sustitución de datos o en las unidades. El procedimiento se muestra de forma limitada y no siempre permite verificar cómo obtuvo los resultados.
 
-## Criterio 1: Justificación del Paradigma TinyML (Fase 1)
+- **Nivel 3 — 6 puntos**  
+  Calcula correctamente la mayoría de los valores de LSB y SNR para 12, 8 y 6 bits. Puede haber un error menor de redondeo, notación o presentación, pero el procedimiento general es correcto. Las unidades aparecen casi siempre bien usadas y el desarrollo permite seguir el razonamiento.
 
-*Peso sugerido: 20%*
+- **Nivel 4 — 8 puntos**  
+  Calcula correctamente el valor del LSB para 12, 8 y 6 bits usando el rango de 3300 mV. Calcula correctamente el SNR ideal para las tres resoluciones con la ecuación indicada en el taller. Presenta todos los resultados con unidades correctas y consistentes (mV, dB), mostrando procedimiento claro, ordenado y sin errores numéricos ni conceptuales.
 
-| Nivel | % | Descriptor |
-|-------|---|------------|
-| 1 | 25% | Menciona TinyML sin justificar por qué es preferible a la nube. No selecciona criterios (latencia, privacidad, ancho de banda, energía/costos) o los lista sin relacionarlos con su propuesta. |
-| 2 | 50% | Selecciona al menos 3 criterios, pero la justificación es genérica o teórica. No conecta claramente cada criterio con las características específicas de su dispositivo. |
-| 3 | 75% | Selecciona y justifica al menos 3 criterios con argumentos concretos vinculados a su propuesta. Algún criterio carece de profundidad o de un ejemplo que lo respalde. |
-| 4 | 100% | Selecciona y justifica 3 o más criterios con argumentos sólidos, específicos y bien articulados. Demuestra comprensión clara de por qué el procesamiento en el borde es indispensable para su caso y no simplemente conveniente. |
+## 2. Análisis experimental del error
 
----
+- **Nivel 1 — 0 puntos**  
+  No relaciona las gráficas de Teleplot con el límite teórico de cuantización, o lo hace de manera incorrecta. No hay justificación técnica basada en la evidencia experimental, o el análisis es meramente descriptivo y no responde al objetivo del taller.
 
-## Criterio 2: Arquitectura del Sistema de Adquisición de Datos (Fase 2)
+- **Nivel 2 — 3 puntos**  
+  Hace una comparación general entre teoría y experimento, pero sin suficiente precisión. Puede mencionar que el error está “dentro” o “fuera” del rango esperado sin evidencias claras, sin estimar bien la amplitud observada o sin explicar adecuadamente las variaciones.
 
-*Peso sugerido: 25%*
+- **Nivel 3 — 4 puntos**  
+  Compara adecuadamente las gráficas de error con el límite teórico y concluye de forma correcta si los valores observados son razonables. La justificación existe, aunque puede ser breve o poco profunda en la explicación de las variaciones experimentales.
 
-| Nivel | % | Descriptor |
-|-------|---|------------|
-| 1 | 25% | No identifica sensores concretos o los menciona de forma vaga. No aborda restricciones del entorno embebido ni describe el flujo de Machine Learning. |
-| 2 | 50% | Identifica los sensores pero sin especificar las señales físicas exactas que se medirán. Menciona restricciones de hardware de manera superficial. El flujo de ML (entrenamiento e inferencia) se describe de forma incompleta o confusa. |
-| 3 | 75% | Identifica sensores y señales físicas con claridad. Describe las restricciones de memoria, procesamiento y batería con relación a su diseño. Explica el flujo de entrenamiento e inferencia, aunque falta detalle en alguna de las dos fases. |
-| 4 | 100% | Especifica con precisión los sensores, las señales físicas y su relevancia para el problema. Analiza cómo las restricciones del microcontrolador condicionan decisiones de diseño concretas (tipo de modelo, resolución de datos, frecuencia de muestreo, etc.). Describe con claridad tanto la fuente de datos históricos para entrenamiento como el proceso de inferencia en tiempo real. |
+- **Nivel 4 — 6 puntos**  
+  Compara de forma rigurosa los errores observados en `Error_8b[mV]` y `Error_6b[mV]` con el límite teórico de ±(1/2)LSB. Usa las gráficas de Teleplot como evidencia, identifica amplitudes máximas observadas y argumenta con claridad si los datos cumplen o no con el modelo teórico. Explica de manera técnica las diferencias entre teoría y medición, considerando el comportamiento del ruido, la granularidad y las limitaciones del montaje experimental.
 
----
+## 3. Conclusiones y razonamiento
 
-## Criterio 3: Evolución hacia IoT 2.0 — Intelligence of Things (Fase 3)
+- **Nivel 1 — 0 puntos**  
+  Afirma incorrectamente que `Mic_12b` es una señal ideal sin error, o da una respuesta sin justificación técnica suficiente. Evidencia confusión conceptual sobre la naturaleza del proceso A/D y el ruido de cuantización.
 
-*Peso sugerido: 20%*
+- **Nivel 2 — 1 punto**  
+  Muestra una comprensión parcial de la pregunta. Reconoce alguna limitación de `Mic_12b`, pero la explicación es ambigua, incompleta o poco conectada con el fundamento matemático del taller.
 
-| Nivel | % | Descriptor |
-|-------|---|------------|
-| 1 | 25% | No diferencia entre IoT 1.0 e IoT 2.0. La propuesta se presenta como un sensor que solo transmite datos sin procesamiento local inteligente. |
-| 2 | 50% | Menciona la diferencia entre IoT 1.0 e IoT 2.0, pero no argumenta de forma convincente cómo su dispositivo específico aporta inteligencia local. La explicación es teórica y no conecta con su propuesta. |
-| 3 | 75% | Argumenta correctamente por qué su dispositivo pertenece al ecosistema IoT 2.0. Explica cómo identifica patrones, reconoce estados o predice eventos localmente, aunque la argumentación podría ser más detallada. |
-| 4 | 100% | Argumenta con solidez la pertenencia al IoT 2.0 con ejemplos concretos de inteligencia local en su dispositivo (reconocimiento de patrones, clasificación de estados, predicción de eventos). Establece un contraste claro y bien fundamentado con un enfoque IoT 1.0 equivalente. |
+- **Nivel 3 — 2 puntos**  
+  Responde correctamente la pregunta crítica e identifica que la señal de 12 bits también posee error de cuantización. La justificación es válida, aunque no profundiza completamente en la diferencia entre referencia práctica e ideal teórico.
 
----
+- **Nivel 4 — 3 puntos**  
+  Responde con precisión que `Mic_12b` no está verdaderamente libre de ruido de cuantización, sino que actúa como la mejor referencia disponible dentro del experimento. Justifica matemáticamente esta idea con claridad, diferenciando entre señal ideal teórica y señal digitalizada real. La conclusión demuestra comprensión profunda de la cuantización y del alcance de la aproximación usada en el código.
 
-## Criterio 4: Análisis Crítico frente al Caso de Éxito (Fase 4)
+## 4. Formato IEEE y gráficas
 
-*Peso sugerido: 20%*
+- **Nivel 1 — 0 puntos**  
+  No se sigue el formato IEEE de forma suficiente o el informe presenta deficiencias severas de estructura. Las gráficas faltan, son ilegibles o no están vinculadas al análisis escrito.
 
-| Nivel | % | Descriptor |
-|-------|---|------------|
-| 1 | 25% | No hace referencia al caso del collar OpenSource para elefantes, o la referencia es superficial sin identificar similitudes ni obstáculos. |
-| 2 | 50% | Identifica una similitud con el caso de referencia, pero es genérica (ej. "ambos usan sensores"). No anticipa obstáculos concretos para su propio dispositivo o los describe sin profundidad. |
-| 3 | 75% | Identifica una similitud técnica, funcional o de impacto relevante y bien explicada. Anticipa obstáculos físicos, ambientales o técnicos para su dispositivo, aunque el análisis podría ser más específico o completo. |
-| 4 | 100% | Identifica una similitud significativa y la explica con detalle técnico o funcional. Anticipa obstáculos realistas y específicos (condiciones climáticas, desgaste, autonomía energética, calidad de datos en campo, etc.) demostrando pensamiento crítico sobre el despliegue real de su dispositivo. |
+- **Nivel 2 — 1 punto**  
+  El informe presenta cumplimiento parcial del formato IEEE. Las gráficas existen, pero pueden tener problemas de nitidez, ejes poco visibles, escasa relación con el texto o falta de numeración y referencia adecuada.
 
----
+- **Nivel 3 — 2 puntos**  
+  El informe sigue en gran medida el formato IEEE y presenta gráficas útiles y legibles. Puede haber detalles menores de formato, rotulación o referenciación, pero no afectan seriamente la comprensión del documento.
 
-## Criterio 5: Formato, Estructura y Comunicación del Entregable
+- **Nivel 4 — 3 puntos**  
+  El informe cumple estrictamente el formato IEEE a doble columna y se mantiene dentro de la extensión máxima solicitada. Las gráficas de Teleplot son claras, legibles, pertinentes y están correctamente integradas al texto. Los ejes, unidades y variables son visibles; las figuras están numeradas, referenciadas y respaldan directamente el análisis presentado.
 
-*Peso sugerido: 15%*
+## Tabla resumen para Moodle
 
-| Nivel | % | Descriptor |
-|-------|---|------------|
-| 1 | 25% | No cumple con el formato PDF o excede significativamente las 2 páginas. Falta el título del proyecto o la descripción del problema. La estructura no sigue las 4 fases solicitadas. Redacción con errores frecuentes. |
-| 2 | 50% | Entrega en PDF pero no respeta el límite de 2 páginas, o falta algún elemento estructural (título, descripción breve del problema, alguna fase). La redacción es comprensible pero desorganizada. |
-| 3 | 75% | Cumple con el formato PDF y la extensión de 2 páginas. Incluye título, descripción del problema y las 4 fases. La redacción es clara, con observaciones menores de organización o presentación. |
-| 4 | 100% | Cumple con todos los requisitos formales (PDF, máximo 2 páginas). Documento bien organizado con título claro, descripción concisa del problema y desarrollo ordenado de las 4 fases. Redacción precisa, coherente y con uso adecuado de vocabulario técnico. |
-
----
-
-## Tabla resumen de pesos
-
-| Criterio | Peso |
-|----------|------|
-| 1. Justificación del Paradigma TinyML | 20% |
-| 2. Arquitectura del Sistema | 25% |
-| 3. Evolución hacia IoT 2.0 | 20% |
-| 4. Análisis Crítico — Caso de Éxito | 20% |
-| 5. Formato, Estructura y Comunicación | 15% |
-| **Total** | **100%** |
-
----
-
-### Fórmula de calificación
-
-**Nota final = Σ (porcentaje del nivel obtenido × peso del criterio)**
-
-*Ejemplo: Un estudiante obtiene Nivel 4 (100%) en los criterios 1, 2 y 5, y Nivel 3 (75%) en los criterios 3 y 4.*  
-*Nota = (100%×0.20) + (100%×0.25) + (75%×0.20) + (75%×0.20) + (100%×0.15) = 0.20 + 0.25 + 0.15 + 0.15 + 0.15 = **0.90 → 90/100***
+| Criterio | Nivel 1 | Nivel 2 | Nivel 3 | Nivel 4 |
+|---|---:|---:|---:|---:|
+| Cálculos teóricos: LSB y SNR | 0 | 4 | 6 | 8 |
+| Análisis experimental del error | 0 | 3 | 4 | 6 |
+| Conclusiones y razonamiento | 0 | 1 | 2 | 3 |
+| Formato IEEE y gráficas | 0 | 1 | 2 | 3 |

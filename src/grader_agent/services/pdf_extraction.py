@@ -7,11 +7,10 @@ from typing import Union
 
 import fitz  # pymupdf
 
+from grader_agent.grading_config import pdf_max_pages
 from grader_agent.models import ERROR_TYPE_VALIDATION, ErrorResult
 
 _logger = logging.getLogger(__name__)
-
-_MAX_PAGES = 4
 
 
 class PDFExtractionService:
@@ -41,10 +40,11 @@ class PDFExtractionService:
 
         try:
             n = len(doc)
-            if n > _MAX_PAGES:
+            max_pages = pdf_max_pages()
+            if n > max_pages:
                 return ErrorResult(
                     error_type=ERROR_TYPE_VALIDATION,
-                    message=f"El PDF tiene {n} páginas. El máximo permitido es {_MAX_PAGES}.",
+                    message=f"El PDF tiene {n} páginas. El máximo permitido es {max_pages}.",
                     detail=None,
                 )
             parts: list[str] = []

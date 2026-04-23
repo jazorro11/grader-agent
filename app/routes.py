@@ -23,6 +23,7 @@ from app.grading_http import (
     run_grading_request,
 )
 from grader_agent.export_csv import resultados_entregables_a_csv
+from grader_agent.grading_config import pdf_max_pages
 from grader_agent.grading.pdf import metadatos_criterios_desde_rubrica
 from grader_agent.moodle_paths import parse_carpeta_moodle
 from grader_agent.models import ErrorResult, GradingResult
@@ -66,7 +67,7 @@ def register_routes(app: Flask) -> None:
 
     @app.route("/")
     def index():
-        return render_template("index.html")
+        return render_template("index.html", pdf_max_pages=pdf_max_pages())
 
     @app.route("/calificar-texto", methods=["POST"])
     def calificar_texto():

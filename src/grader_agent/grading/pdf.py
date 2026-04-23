@@ -22,10 +22,10 @@ client = get_default_openrouter_chat_client()
 
 def extraer_texto_pdf(ruta_pdf: str) -> str:
     """
-    Extract plain text from a PDF (max 4 pages).
+    Extract plain text from a PDF (max pages from ``GRADER_PDF_MAX_PAGES``, default 4).
 
     Raises:
-        ValueError: if the file is not a valid PDF, cannot be read, or exceeds 4 pages.
+        ValueError: if the file is not a valid PDF, cannot be read, or exceeds the configured max pages.
     """
     from grader_agent.models import ErrorResult
     from grader_agent.services.pdf_extraction import PDFExtractionService

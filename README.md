@@ -61,7 +61,7 @@ Every graded request follows the same gates (see [`GradingPipeline.run`](src/gra
 |--------|------|-------------------|-------------------|
 | **Request** | 0 | [`pipeline._validate_request`](src/grader_agent/pipeline.py) | `delivery_type`, non-empty student name, rubric body, submission `content`. Text: JSON with `pregunta`/`respuesta`. Audio: path + item (or single-criterion rubric). |
 | **Audio file** | 1 | [`TranscriptionService`](src/grader_agent/services/transcription.py) | Path exists, allowed extension (Whisper subset), max size (25 MiB), then API call; failures surface as `ErrorResult`. |
-| **PDF file** | 1 | [`PDFExtractionService`](src/grader_agent/services/pdf_extraction.py) | Opens as PDF, **≤ 4 pages**, concatenated `get_text()` non-empty (no extractable text → error). |
+| **PDF file** | 1 | [`PDFExtractionService`](src/grader_agent/services/pdf_extraction.py) | Opens as PDF, **≤ `GRADER_PDF_MAX_PAGES`** (default 4), concatenated `get_text()` non-empty (no extractable text → error). |
 | **Student body** | 2 | [`ContentValidationService`](src/grader_agent/services/content_validation.py) | **Layer A:** regex policy scan ([`guardrails/regex_layer.py`](src/grader_agent/guardrails/regex_layer.py)). **Layer B:** optional OpenRouter JSON verdict when A is clean and `SKIP_LLM_VALIDATION` is false ([`validacion_capa_b`](src/grader_agent/prompts/validacion_capa_b.md)). Rejection returns **without** calling the grader. |
 | **Rubric file** | 3 | [`RubricValidationService`](src/grader_agent/services/rubric_validation.py) | Non-empty Markdown, at least one `#` heading, at least one numeric `%` weight pattern. |
 | **Item vs rubric** | — (between 3 and 4) | [`escala_item_desde_rubrica`](src/grader_agent/grading/text.py) | **Text and audio only:** the question/item string must map to the rubric’s item scale; otherwise `ErrorResult` (`ERROR_TYPE_VALIDATION`). PDF skips this (full-criterion path). |
@@ -106,7 +106,7 @@ The orchestrator runs **steps 0–6** in order for every request (see [`GradingP
 | Step | Name | Responsibility |
 |------|------|----------------|
 | **0** | Request validation | Coerce `delivery_type`, ensure non-empty student name, rubric, and submission payload. |
-| **1** | Acquire plain text | Text: parse JSON `pregunta`/`respuesta`. Audio: resolve path + item, **Whisper** transcribe. PDF: **PyMuPDF** extract text (≤ 4 pages). |
+| **1** | Acquire plain text | Text: parse JSON `pregunta`/`respuesta`. Audio: resolve path + item, **Whisper** transcribe. PDF: **PyMuPDF** extract text (≤ `GRADER_PDF_MAX_PAGES`, default 4). |
 | **2** | Content validation | **Two-layer policy** on submission text (see below). May return a structured **rejection** without calling the grader. |
 | **3** | Rubric validation | Lightweight Markdown checks (headings, at least one numeric `%` weight). |
 | **—** | *(text/audio only, before 4)* | Resolve the rubric item/scale for the submitted question (`escala_item_desde_rubrica`); **validation error** if the item does not match the rubric. PDF flow skips this (full criterion list grading). |
@@ -171,6 +171,7 @@ Copy [`.env.example`](.env.example) to `.env` and set **both** keys for local ru
 | `VALIDATION_MAX_TOKENS` | No | Max output tokens for validation calls (default `2048`). |
 | `GRADER_TRANSCRIPTION_MODEL` | No | Speech model (default `whisper-1`). |
 | `GRADER_TRANSCRIPTION_LANGUAGE` | No | ISO language hint for transcription (default `es`). |
+| `GRADER_PDF_MAX_PAGES` | No | Max pages per student PDF for text extraction (default `4`; invalid/empty → default; minimum `1`). |
 | `GRADER_AGENT_PROMPTS_DIR` | No | Override directory for prompt `.md` files. |
 | `GRADER_SCORE_TEMPERATURE` | No | Temperature for numeric score calls (default `0`). |
 | `GRADER_RETRO_TEMPERATURE` | No | Temperature for feedback text (default `0.8`). |
@@ -191,7 +192,7 @@ See [`.env.example`](.env.example) for a full template.
 ## Known limitations
 
 - **Model behavior** — Scores and wording are **non-deterministic** suggestions; always review before recording official grades.
-- **PDF** — Only **plain extracted text** is graded (no diagrams or strict layout fidelity); **max four pages** per file in code.
+- **PDF** — Only **plain extracted text** is graded (no diagrams or strict layout fidelity); page cap defaults to **four** and is configurable via `GRADER_PDF_MAX_PAGES`.
 - **Language** — Prompts and UI strings are largely **Spanish**; transcription defaults to Spanish (`GRADER_TRANSCRIPTION_LANGUAGE`).
 - **No teacher bypass** — There is **no privileged “docente” path** to skip pipeline steps, guardrails, or output validation from the UI or API; every graded request follows the same sequence.
 - **No concurrency guarantees** — Single-process demo: **no locking**, queues, or multi-tenant isolation; concurrent uploads may race on the active rubric file or JSON log.
