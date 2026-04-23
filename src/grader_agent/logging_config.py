@@ -52,13 +52,14 @@ def configure_root_logging() -> None:
     if not root.handlers:
         req_filter = RequestIdFilter()
         fmt = logging.Formatter(_root_format_string(), datefmt="%Y-%m-%d %H:%M:%S")
-        root.addFilter(req_filter)
         stream = logging.StreamHandler()
+        stream.addFilter(req_filter)
         stream.setFormatter(fmt)
         root.addHandler(stream)
         path = log_file_path()
         if path is not None:
             path.parent.mkdir(parents=True, exist_ok=True)
             file_handler = logging.FileHandler(path, encoding="utf-8")
+            file_handler.addFilter(req_filter)
             file_handler.setFormatter(fmt)
             root.addHandler(file_handler)
