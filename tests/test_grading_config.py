@@ -96,3 +96,28 @@ def test_pdf_max_pages_env_no_numerico_usa_default(monkeypatch):
 def test_pdf_max_pages_minimum_uno(monkeypatch):
     monkeypatch.setenv("GRADER_PDF_MAX_PAGES", "0")
     assert grading_config.pdf_max_pages() == 1
+
+
+def test_code_max_bytes_default(monkeypatch):
+    monkeypatch.delenv("GRADER_CODE_MAX_BYTES", raising=False)
+    assert grading_config.code_max_bytes() == 524_288
+
+
+def test_code_max_bytes_desde_env(monkeypatch):
+    monkeypatch.setenv("GRADER_CODE_MAX_BYTES", "200000")
+    assert grading_config.code_max_bytes() == 200_000
+
+
+def test_code_max_bytes_minimum_mil_veinticuatro(monkeypatch):
+    monkeypatch.setenv("GRADER_CODE_MAX_BYTES", "500")
+    assert grading_config.code_max_bytes() == 1024
+
+
+def test_code_max_chars_desde_env(monkeypatch):
+    monkeypatch.setenv("GRADER_CODE_MAX_CHARS", "800000")
+    assert grading_config.code_max_chars() == 800_000
+
+
+def test_code_max_chars_minimum(monkeypatch):
+    monkeypatch.setenv("GRADER_CODE_MAX_CHARS", "1")
+    assert grading_config.code_max_chars() == 4096

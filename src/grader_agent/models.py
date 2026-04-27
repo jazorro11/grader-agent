@@ -20,6 +20,7 @@ class DeliveryType(str, Enum):
     TEXT = "text"
     AUDIO = "audio"
     PDF_DELIVERABLE = "pdf_deliverable"
+    CODE_DELIVERABLE = "code_deliverable"
 
 
 @dataclass

@@ -146,8 +146,14 @@ Si la rúbrica define un solo ítem, ``criterion_weight`` debe ser 100.
         *,
         criteria_metadata: list[dict] | None = None,
         request_id: str | None = None,
+        submission_body_heading: str = "TEXTO PLANO DEL ENTREGABLE (PDF)",
     ) -> Union[dict, ErrorResult]:
-        """Grade every rubric criterion against extracted PDF plain text."""
+        """
+        Grade every rubric criterion against one block of plain text (PDF, Python o notebook).
+
+        ``deliverable_plain_text`` es el cuerpo ya extraído; ``submission_body_heading`` etiqueta
+        el bloque en el prompt (p. ej. PDF vs código vs notebook).
+        """
         meta = criteria_metadata
         if meta is None:
             meta = metadatos_criterios_desde_rubrica(rubric_markdown)
@@ -177,7 +183,7 @@ Si la rúbrica define un solo ítem, ``criterion_weight`` debe ser 100.
 CRITERIO A CALIFICAR (nombre exacto en salida): {criterio}
 PUNTAJE MÁXIMO CANÓNICO (techo absoluto): {pmax}
 {bloque_n}
-TEXTO PLANO DEL ENTREGABLE (PDF):
+{submission_body_heading}:
 {deliverable_plain_text}
 
 Devolvé exactamente UNA entrada en ``scores_by_criterion`` para este criterio.

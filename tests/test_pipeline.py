@@ -25,6 +25,7 @@ def _make_pipeline(**overrides: object) -> GradingPipeline:
     defaults = {
         "transcription_service": MagicMock(),
         "pdf_extraction_service": MagicMock(),
+        "code_notebook_extraction_service": MagicMock(),
         "content_validation": MagicMock(),
         "rubric_validation": MagicMock(),
         "grading": MagicMock(),
@@ -149,6 +150,79 @@ def test_success_text_path(mock_escala: MagicMock) -> None:
     grading.grade_text_item.assert_called_once()
     kwargs = grading.grade_text_item.call_args.kwargs
     assert "request_id" in kwargs and kwargs["request_id"]
+
+
+def test_success_code_deliverable_extract_and_grade_heading(tmp_path: object) -> None:
+    path = tmp_path / "t.py"
+    path.write_text("a = 1\n", encoding="utf-8")
+
+    code_nb = MagicMock()
+    code_nb.extract.return_value = "a = 1\n"
+    pdf_ex = MagicMock()
+
+    content_validation = MagicMock()
+    content_validation.validate.return_value = ContentValidationResult(
+        verdict="clean",
+        reason="ok",
+        flagged_patterns=(),
+        detection_layer="regex_only",
+    )
+    rubric_validation = MagicMock()
+    rubric_validation.validate.return_value = None
+
+    grading_payload = {
+        "scores_by_criterion": [
+            {
+                "criterion_name": "Criterio 25%",
+                "criterion_weight": 100.0,
+                "level_obtained": "Nivel 2",
+                "level_percentage": 80.0,
+                "weighted_score": 8.0,
+            }
+        ],
+        "total_weighted_score": 8.0,
+        "total_max_score": 10.0,
+    }
+    grading = MagicMock()
+    grading.grade_pdf_submission_text.return_value = grading_payload
+
+    validated = (
+        {
+            "scores_by_criterion": grading_payload["scores_by_criterion"],
+            "total_weighted_score": 8.0,
+            "total_max_score": 10.0,
+        },
+        [],
+    )
+    output_validation = MagicMock()
+    output_validation.validate.return_value = validated
+
+    feedback = MagicMock()
+    feedback.generate_feedback.return_value = "Bien."
+
+    pipe = _make_pipeline(
+        pdf_extraction_service=pdf_ex,
+        code_notebook_extraction_service=code_nb,
+        content_validation=content_validation,
+        rubric_validation=rubric_validation,
+        grading=grading,
+        output_validation=output_validation,
+        feedback=feedback,
+    )
+    req = GradingRequest(
+        delivery_type=DeliveryType.CODE_DELIVERABLE,
+        content=str(path),
+        student_name="Bob",
+        rubric_content=_minimal_rubric(),
+    )
+    out = pipe.run(req)
+    assert isinstance(out, GradingResult)
+    assert out.status == "success"
+    code_nb.extract.assert_called_once()
+    pdf_ex.extract.assert_not_called()
+    grading.grade_pdf_submission_text.assert_called_once()
+    heading = grading.grade_pdf_submission_text.call_args.kwargs["submission_body_heading"]
+    assert "PYTHON" in heading.upper()
 
 
 @patch("grader_agent.pipeline.escala_item_desde_rubrica")

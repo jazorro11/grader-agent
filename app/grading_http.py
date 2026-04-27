@@ -132,9 +132,15 @@ def grading_result_to_pdf_ui_dict(
         criterios.append(_row(orig))
 
     alumno = (result.student_name or "").strip() or "Alumno"
+    kind = (result.deliverable_kind or "").strip()
+    tipo = (
+        "entregable_codigo"
+        if kind == DeliveryType.CODE_DELIVERABLE.value
+        else "entregable_pdf"
+    )
     return {
         "alumno": alumno,
-        "tipo": "entregable_pdf",
+        "tipo": tipo,
         "criterios": criterios,
         "total_obtenido": result.total_score,
         "total_maximo": result.total_max_score,
@@ -191,6 +197,21 @@ def build_pdf_grading_request(
     return GradingRequest(
         delivery_type=DeliveryType.PDF_DELIVERABLE,
         content=pdf_path.strip(),
+        student_name=student_name.strip() or "Alumno",
+        rubric_content=rubric,
+    )
+
+
+def build_code_deliverable_grading_request(
+    *,
+    rubric: str,
+    student_name: str,
+    file_path: str,
+) -> GradingRequest:
+    """Build a ``CODE_DELIVERABLE`` request (``.py`` / ``.ipynb``) whose ``content`` is the file path."""
+    return GradingRequest(
+        delivery_type=DeliveryType.CODE_DELIVERABLE,
+        content=file_path.strip(),
         student_name=student_name.strip() or "Alumno",
         rubric_content=rubric,
     )
