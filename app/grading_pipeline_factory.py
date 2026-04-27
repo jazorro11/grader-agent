@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from grader_agent.llm.clients import make_openai_transcription_client, make_openrouter_chat_client
 from grader_agent.pipeline import GradingPipeline
+from grader_agent.services.code_notebook_extraction import CodeNotebookExtractionService
 from grader_agent.services.content_validation import ContentValidationService
 from grader_agent.services.feedback import FeedbackService
 from grader_agent.services.grading import GradingService
@@ -21,6 +22,7 @@ def create_grading_pipeline() -> GradingPipeline:
     return GradingPipeline(
         transcription_service=TranscriptionService(whisper),
         pdf_extraction_service=PDFExtractionService(),
+        code_notebook_extraction_service=CodeNotebookExtractionService(),
         content_validation=ContentValidationService(chat),
         rubric_validation=RubricValidationService(),
         grading=GradingService(chat),

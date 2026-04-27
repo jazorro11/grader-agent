@@ -195,7 +195,7 @@ def test_subida_supera_max_content_length_devuelve_413(app_client, monkeypatch):
     assert "16 MB" in body["error"] or "máximo" in body["error"].lower()
 
 
-def test_calificar_entregable_sin_pdf_devuelve_400(app_client):
+def test_calificar_entregable_sin_archivo_devuelve_400(app_client):
     write_rubrica_parcial(app_client["rubrics"])
     rv = app_client["client"].post(
         "/calificar-entregable",
@@ -203,6 +203,7 @@ def test_calificar_entregable_sin_pdf_devuelve_400(app_client):
         content_type="multipart/form-data",
     )
     assert rv.status_code == 400
+    assert "archivo" in rv.get_json()["error"].lower()
 
 
 def test_calificar_entregable_sin_rubrica_devuelve_400(app_client):
@@ -216,6 +217,20 @@ def test_calificar_entregable_sin_rubrica_devuelve_400(app_client):
     )
     assert rv.status_code == 400
     assert "rúbrica" in rv.get_json()["error"].lower()
+
+
+def test_calificar_entregable_extension_invalida_devuelve_400(app_client):
+    write_rubrica_parcial(app_client["rubrics"])
+    rv = app_client["client"].post(
+        "/calificar-entregable",
+        data={
+            "alumno": "X",
+            "entregable": (BytesIO(b"hola"), "notas.txt"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert rv.status_code == 400
+    assert ".pdf" in rv.get_json()["error"].lower() or "ipynb" in rv.get_json()["error"].lower()
 
 
 @patch.object(routes_module, "run_grading_request")
@@ -249,6 +264,86 @@ def test_calificar_entregable_camino_feliz(mock_run, app_client):
     assert req.delivery_type == DeliveryType.PDF_DELIVERABLE
     assert req.student_name == "María"
     assert "## Rubrica" in req.rubric_content
+
+
+@patch.object(routes_module, "run_grading_request")
+def test_calificar_entregable_py_usa_code_deliverable(mock_run, app_client):
+    write_rubrica_parcial(app_client["rubrics"])
+    mock_run.return_value = GradingResult(
+        scores_by_criterion={},
+        total_score=10.0,
+        total_max_score=10.0,
+        feedback="",
+        student_name="Ana",
+        item_label=None,
+        transcription=None,
+        deliverable_kind="code_deliverable",
+        archivo_pdf=None,
+        status="success",
+        rejection=None,
+    )
+    rv = app_client["client"].post(
+        "/calificar-entregable",
+        data={
+            "alumno": "Ana",
+            "entregable": (BytesIO(b"print(1)\n"), "sol.py"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert rv.status_code == 200
+    mock_run.assert_called_once()
+    req = mock_run.call_args[0][0]
+    assert isinstance(req, GradingRequest)
+    assert req.delivery_type == DeliveryType.CODE_DELIVERABLE
+    body = rv.get_json()
+    assert body.get("tipo") == "entregable_codigo"
+
+
+@patch.object(routes_module, "run_grading_request")
+def test_calificar_entregable_ipynb_usa_code_deliverable(mock_run, app_client):
+    write_rubrica_parcial(app_client["rubrics"])
+    mock_run.return_value = GradingResult(
+        scores_by_criterion={},
+        total_score=9.0,
+        total_max_score=10.0,
+        feedback="",
+        student_name="Bob",
+        item_label=None,
+        transcription=None,
+        deliverable_kind="code_deliverable",
+        archivo_pdf=None,
+        status="success",
+        rejection=None,
+    )
+    nb = json.dumps(
+        {
+            "nbformat": 4,
+            "nbformat_minor": 5,
+            "metadata": {},
+            "cells": [
+                {
+                    "cell_type": "code",
+                    "metadata": {},
+                    "outputs": [],
+                    "source": ["y = 2\n"],
+                },
+            ],
+        }
+    )
+    rv = app_client["client"].post(
+        "/calificar-entregable",
+        data={
+            "alumno": "Bob",
+            "entregable": (BytesIO(nb.encode("utf-8")), "tarea.ipynb"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert rv.status_code == 200
+    mock_run.assert_called_once()
+    req = mock_run.call_args[0][0]
+    assert isinstance(req, GradingRequest)
+    assert req.delivery_type == DeliveryType.CODE_DELIVERABLE
+    assert rv.get_json().get("tipo") == "entregable_codigo"
 
 
 @patch.object(routes_module, "run_grading_request")
@@ -301,7 +396,7 @@ def test_resultados_devuelve_lista_guardada(app_client):
     assert len(rv.get_json()) == 1
 
 
-def test_calificar_carpeta_sin_pdf_devuelve_400(app_client):
+def test_calificar_carpeta_sin_archivos_devuelve_400(app_client):
     write_rubrica_parcial(app_client["rubrics"])
     rv = app_client["client"].post(
         "/calificar-carpeta-entregables",
@@ -309,7 +404,7 @@ def test_calificar_carpeta_sin_pdf_devuelve_400(app_client):
         content_type="multipart/form-data",
     )
     assert rv.status_code == 400
-    assert "pdf" in rv.get_json()["error"].lower()
+    assert "entrega" in rv.get_json()["error"].lower()
 
 
 def test_calificar_carpeta_alumno_pdf_count_mismatch(app_client):

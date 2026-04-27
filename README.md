@@ -1,6 +1,6 @@
 # Grader Agent
 
-Multimodal **AI-assisted grading** demo for educators: propose scores and short feedback from a **Markdown rubric** against **typed text**, **recorded audio** (transcribed with speech-to-text), or **PDF hand-ins** (plain text extracted from the first pages).
+Multimodal **AI-assisted grading** demo for educators: propose scores and short feedback from a **Markdown rubric** against **typed text**, **recorded audio** (transcribed with speech-to-text), or **file hand-ins** — **PDF** (plain text extracted from the first pages), **Python** (`.py` UTF-8), or **Jupyter** (`.ipynb`, code cells only, nbformat ≥ 4).
 
 This repository is structured as a small **product-shaped** Python service: a minimal Flask UI, business logic under `src/grader_agent`, and tests that mock LLM clients so the suite runs **without live API calls**.
 
@@ -11,8 +11,8 @@ This repository is structured as a small **product-shaped** Python service: a mi
 - **Rubric upload** — Save an active rubric (`.md`) used for all subsequent grading in the session.
 - **Text grading** — For one question/item at a time, returns suggested score, max score from the rubric, and student-facing feedback JSON.
 - **Audio grading** — Uploads audio, transcribes it with **OpenAI Whisper**, then runs the same text pipeline on the transcript.
-- **PDF grading** — Extracts text (PyMuPDF), scores each rubric criterion via **OpenRouter**, and aggregates totals.
-- **Batch folder flow** — Optional UI path for many PDFs with Moodle-style folder names; exports a CSV for spreadsheets.
+- **PDF / code / notebook grading** — Extracts plain text (PyMuPDF for PDF, UTF-8 read for `.py`, concatenated code cells for `.ipynb`), then scores each rubric criterion via **OpenRouter** like PDFs and aggregates totals.
+- **Batch folder flow** — Optional UI path for many submissions (`.pdf`, `.py`, or `.ipynb` per student folder) with Moodle-style folder names; exports a CSV for spreadsheets. The multipart field `entregable` is preferred; `pdf` is still accepted for backward compatibility.
 - **Results log** — Appends JSON results under the configured data directory (default `./data/resultados.json`).
 
 ---
@@ -27,18 +27,18 @@ It is **not** a gradebook replacement, an official LMS, or a guarantee of fair o
 
 ## Main workflows
 
-Single-request flow: **request → plain text → student-content policy → rubric → (text/audio only: item match) → LLM grade → validate grading JSON → feedback**. Batch PDF in the UI runs the same steps per file, then exports CSV (not shown).
+Single-request flow: **request → plain text → student-content policy → rubric → (text/audio only: item match) → LLM grade → validate grading JSON → feedback**. Batch folder grading in the UI runs the same steps per file, then exports CSV (not shown).
 
 ```mermaid
 flowchart TD
   IN([Rubric + submission]) --> S0[0 · Request validation]
-  S0 --> S1[1 · Plain text<br/>JSON parse · Whisper · PDF extract]
+  S0 --> S1[1 · Plain text<br/>JSON parse · Whisper · PDF or code extract]
   S1 --> S2[2 · Student text<br/>regex then optional LLM]
   S2 -->|policy rejected| RJ[Rejected · no grading call]
   S2 -->|clean| S3[3 · Rubric Markdown check]
   S3 --> MOD{Modality}
   MOD -->|text or audio| MAP[Map question to rubric item]
-  MOD -->|PDF| S4[4 · LLM grading JSON]
+  MOD -->|PDF or code file| S4[4 · LLM grading JSON]
   MAP --> S4
   S4 --> S5[5 · Output validation<br/>schema · criteria · clamps]
   S5 --> S6[6 · Feedback text]
@@ -49,7 +49,7 @@ Failures (`ErrorResult`, bad audio/PDF, invalid item, bad model JSON, feedback A
 
 1. **Upload rubric** → stored as `data/rubrics/rubrica_activa.md` (paths configurable).
 2. **Grade one modality** → JSON response; optional append to results log.
-3. **Optional** → Clear results, export CSV after batch PDF grading.
+3. **Optional** → Clear results, export CSV after batch grading (PDF / Python / notebook).
 
 ---
 
@@ -62,9 +62,10 @@ Every graded request follows the same gates (see [`GradingPipeline.run`](src/gra
 | **Request** | 0 | [`pipeline._validate_request`](src/grader_agent/pipeline.py) | `delivery_type`, non-empty student name, rubric body, submission `content`. Text: JSON with `pregunta`/`respuesta`. Audio: path + item (or single-criterion rubric). |
 | **Audio file** | 1 | [`TranscriptionService`](src/grader_agent/services/transcription.py) | Path exists, allowed extension (Whisper subset), max size (25 MiB), then API call; failures surface as `ErrorResult`. |
 | **PDF file** | 1 | [`PDFExtractionService`](src/grader_agent/services/pdf_extraction.py) | Opens as PDF, **≤ `GRADER_PDF_MAX_PAGES`** (default 4), concatenated `get_text()` non-empty (no extractable text → error). |
+| **Python / notebook** | 1 | [`CodeNotebookExtractionService`](src/grader_agent/services/code_notebook_extraction.py) | `.py`: UTF-8 (with BOM), non-empty body. `.ipynb`: JSON, **nbformat ≥ 4**, at least one **code** cell with non-empty source. Limits: **`GRADER_CODE_MAX_BYTES`** (default 524288), **`GRADER_CODE_MAX_CHARS`** on extracted text (default 400000). |
 | **Student body** | 2 | [`ContentValidationService`](src/grader_agent/services/content_validation.py) | **Layer A:** regex policy scan ([`guardrails/regex_layer.py`](src/grader_agent/guardrails/regex_layer.py)). **Layer B:** optional OpenRouter JSON verdict when A is clean and `SKIP_LLM_VALIDATION` is false ([`validacion_capa_b`](src/grader_agent/prompts/validacion_capa_b.md)). Rejection returns **without** calling the grader. |
 | **Rubric file** | 3 | [`RubricValidationService`](src/grader_agent/services/rubric_validation.py) | Non-empty Markdown, at least one `#` heading, at least one numeric `%` weight pattern. |
-| **Item vs rubric** | — (between 3 and 4) | [`escala_item_desde_rubrica`](src/grader_agent/grading/text.py) | **Text and audio only:** the question/item string must map to the rubric’s item scale; otherwise `ErrorResult` (`ERROR_TYPE_VALIDATION`). PDF skips this (full-criterion path). |
+| **Item vs rubric** | — (between 3 and 4) | [`escala_item_desde_rubrica`](src/grader_agent/grading/text.py) | **Text and audio only:** the question/item string must map to the rubric’s item scale; otherwise `ErrorResult` (`ERROR_TYPE_VALIDATION`). PDF and code/notebook deliveries skip this (full-criterion path). |
 | **LLM grading shape** | 4 | [`GradingService`](src/grader_agent/services/grading.py) + retries in pipeline | Parses model output as JSON; **bounded retries** when the failure looks like a recoverable bad shape / invalid model output (see `_grading_internal_recoverable` in [`pipeline.py`](src/grader_agent/pipeline.py)). |
 | **Grading JSON output** | 5 | [`OutputValidationService`](src/grader_agent/services/output_validation.py) | **Deterministic, no LLM:** object with non-empty `scores_by_criterion`; each row has required keys; `criterion_name` set must **exactly** match expected criteria (from rubric metadata, or `allowed_criterion_names` for single text/audio items); `level_percentage` 0–100 (clamp + warning); `weighted_score` clamped to rubric max when known (warning if unknown max); `criterion_weight` clamped 0–100; recomputed `total_weighted_score` / `total_max_score`. On hard shape mismatch → `ErrorResult` (typically “reintentar la calificación”). |
 | **Feedback** | 6 | [`FeedbackService`](src/grader_agent/services/feedback.py) | Uses **only** the **step-5–validated** payload; if the feedback call fails, the pipeline returns `ErrorResult` (no silent fallback to raw model scores in the success object). |
@@ -106,7 +107,7 @@ The orchestrator runs **steps 0–6** in order for every request (see [`GradingP
 | Step | Name | Responsibility |
 |------|------|----------------|
 | **0** | Request validation | Coerce `delivery_type`, ensure non-empty student name, rubric, and submission payload. |
-| **1** | Acquire plain text | Text: parse JSON `pregunta`/`respuesta`. Audio: resolve path + item, **Whisper** transcribe. PDF: **PyMuPDF** extract text (≤ `GRADER_PDF_MAX_PAGES`, default 4). |
+| **1** | Acquire plain text | Text: parse JSON `pregunta`/`respuesta`. Audio: resolve path + item, **Whisper** transcribe. PDF: **PyMuPDF** extract text (≤ `GRADER_PDF_MAX_PAGES`, default 4). Code/notebook: read `.py` / `.ipynb` with limits `GRADER_CODE_MAX_BYTES` and `GRADER_CODE_MAX_CHARS` (see [Environment variables](#environment-variables)). |
 | **2** | Content validation | **Two-layer policy** on submission text (see below). May return a structured **rejection** without calling the grader. |
 | **3** | Rubric validation | Lightweight Markdown checks (headings, at least one numeric `%` weight). |
 | **—** | *(text/audio only, before 4)* | Resolve the rubric item/scale for the submitted question (`escala_item_desde_rubrica`); **validation error** if the item does not match the rubric. PDF flow skips this (full criterion list grading). |
@@ -172,6 +173,8 @@ Copy [`.env.example`](.env.example) to `.env` and set **both** keys for local ru
 | `GRADER_TRANSCRIPTION_MODEL` | No | Speech model (default `whisper-1`). |
 | `GRADER_TRANSCRIPTION_LANGUAGE` | No | ISO language hint for transcription (default `es`). |
 | `GRADER_PDF_MAX_PAGES` | No | Max pages per student PDF for text extraction (default `4`; invalid/empty → default; minimum `1`). |
+| `GRADER_CODE_MAX_BYTES` | No | Max on-disk size in **bytes** for each `.py` or `.ipynb` before extraction (default `524288`; invalid/empty → default; minimum `1024`). If the file is larger, the pipeline returns validation **`ErrorResult`** → HTTP **400** with: `El archivo supera el tamaño máximo permitido para código/notebook (<N> bytes). Acotá el entregable o subí GRADER_CODE_MAX_BYTES.` (`<N>` is the effective limit). |
+| `GRADER_CODE_MAX_CHARS` | No | Max length in **characters** of the extracted plain text after UTF-8 decode / notebook cell merge (default `400000`; invalid/empty → default; minimum `4096`). If longer, validation **`ErrorResult`** → HTTP **400** with: `El texto extraído supera el máximo de <N> caracteres. Acotá el archivo o subí GRADER_CODE_MAX_CHARS.` (`<N>` is the effective limit). |
 | `GRADER_AGENT_PROMPTS_DIR` | No | Override directory for prompt `.md` files. |
 | `GRADER_SCORE_TEMPERATURE` | No | Temperature for numeric score calls (default `0`). |
 | `GRADER_RETRO_TEMPERATURE` | No | Temperature for feedback text (default `0.8`). |
@@ -193,6 +196,7 @@ See [`.env.example`](.env.example) for a full template.
 
 - **Model behavior** — Scores and wording are **non-deterministic** suggestions; always review before recording official grades.
 - **PDF** — Only **plain extracted text** is graded (no diagrams or strict layout fidelity); page cap defaults to **four** and is configurable via `GRADER_PDF_MAX_PAGES`.
+- **Python / Jupyter** — Only extracted source (code cells for notebooks) is graded. File size and extracted-text length are capped by `GRADER_CODE_MAX_BYTES` and `GRADER_CODE_MAX_CHARS` (see [Environment variables](#environment-variables)); exceeding either limit yields the Spanish validation messages documented there. The Flask body limit (`MAX_CONTENT_LENGTH`, 16 MiB) may still accept an upload that is later rejected by `GRADER_CODE_MAX_BYTES`.
 - **Language** — Prompts and UI strings are largely **Spanish**; transcription defaults to Spanish (`GRADER_TRANSCRIPTION_LANGUAGE`).
 - **No teacher bypass** — There is **no privileged “docente” path** to skip pipeline steps, guardrails, or output validation from the UI or API; every graded request follows the same sequence.
 - **No concurrency guarantees** — Single-process demo: **no locking**, queues, or multi-tenant isolation; concurrent uploads may race on the active rubric file or JSON log.

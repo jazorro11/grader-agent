@@ -12,6 +12,8 @@ _DEFAULT_MAX_COMPLETION_LISTAR = 8192
 _DEFAULT_MAX_COMPLETION_RETRO = 4096
 _DEFAULT_MAX_COMPLETION_GRADING_JSON = 1024
 _DEFAULT_PDF_MAX_PAGES = 4
+_DEFAULT_CODE_MAX_BYTES = 524_288
+_DEFAULT_CODE_MAX_CHARS = 400_000
 
 
 def _int_env(name: str, default: int, *, minimum: int = 1) -> int:
@@ -29,6 +31,16 @@ def _int_env(name: str, default: int, *, minimum: int = 1) -> int:
 def pdf_max_pages() -> int:
     """Máximo de páginas por PDF aceptadas para extracción de texto (PyMuPDF)."""
     return _int_env("GRADER_PDF_MAX_PAGES", _DEFAULT_PDF_MAX_PAGES)
+
+
+def code_max_bytes() -> int:
+    """Tamaño máximo en bytes del archivo .py o .ipynb leído desde disco."""
+    return _int_env("GRADER_CODE_MAX_BYTES", _DEFAULT_CODE_MAX_BYTES, minimum=1024)
+
+
+def code_max_chars() -> int:
+    """Longitud máxima del texto extraído (código / notebook) tras decodificar."""
+    return _int_env("GRADER_CODE_MAX_CHARS", _DEFAULT_CODE_MAX_CHARS, minimum=4096)
 
 
 CompletionKind = Literal["escala", "puntaje", "listar", "retro", "validation", "grading_json"]

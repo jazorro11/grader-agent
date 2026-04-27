@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "grader-agent"
 version = "0.1.0"
-description = "Multimodal AI-assisted grading demo for teachers (text, audio, PDF)."
+description = "Multimodal AI-assisted grading demo for teachers (text, audio, PDF, Python, Jupyter)."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

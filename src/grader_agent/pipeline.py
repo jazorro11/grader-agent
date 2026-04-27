@@ -23,6 +23,7 @@ from grader_agent.services.content_validation import ContentValidationService
 from grader_agent.services.feedback import FeedbackService
 from grader_agent.services.grading import GradingService
 from grader_agent.services.output_validation import OutputValidationService
+from grader_agent.services.code_notebook_extraction import CodeNotebookExtractionService
 from grader_agent.services.pdf_extraction import PDFExtractionService
 from grader_agent.services.rubric_validation import RubricValidationService
 from grader_agent.services.transcription import TranscriptionService
@@ -160,6 +161,18 @@ def _parse_audio_delivery(
     return audio_path, item_q
 
 
+def _submission_body_heading(delivery: DeliveryType, artifact_path: str) -> str:
+    """Encabezado del bloque de entrega en el prompt de calificación multi-criterio."""
+    if delivery == DeliveryType.PDF_DELIVERABLE:
+        return "TEXTO PLANO DEL ENTREGABLE (PDF)"
+    if delivery == DeliveryType.CODE_DELIVERABLE:
+        low = artifact_path.lower()
+        if low.endswith(".ipynb"):
+            return "CONTENIDO EXTRAÍDO DEL NOTEBOOK (celdas de código, en orden)"
+        return "CÓDIGO FUENTE DEL ARCHIVO PYTHON"
+    return "TEXTO PLANO DEL ENTREGABLE (PDF)"
+
+
 def _grading_internal_recoverable(err: ErrorResult) -> bool:
     """Reintentar solo fallos de forma/shape JSON atribuibles al modelo (paso 4)."""
     if err.error_type != ERROR_TYPE_INTERNAL:
@@ -246,6 +259,7 @@ class GradingPipeline:
         *,
         transcription_service: TranscriptionService,
         pdf_extraction_service: PDFExtractionService,
+        code_notebook_extraction_service: CodeNotebookExtractionService,
         content_validation: ContentValidationService,
         rubric_validation: RubricValidationService,
         grading: GradingService,
@@ -255,6 +269,7 @@ class GradingPipeline:
         """Wire all pipeline stages; callers typically use ``create_grading_pipeline``."""
         self._transcription = transcription_service
         self._pdf = pdf_extraction_service
+        self._code_nb = code_notebook_extraction_service
         self._content = content_validation
         self._rubric = rubric_validation
         self._grading = grading
@@ -278,7 +293,7 @@ class GradingPipeline:
         acquired = self._step1_acquire_text(request, request_id)
         if isinstance(acquired, ErrorResult):
             return acquired
-        plain_text, item_question, archivo_pdf = acquired
+        plain_text, item_question, archivo_path = acquired
 
         cv = self._content.validate(plain_text, request_id=request_id)
         if cv.verdict == "rejected":
@@ -298,7 +313,7 @@ class GradingPipeline:
                 ),
                 transcription=plain_text if delivery == DeliveryType.AUDIO else None,
                 deliverable_kind=delivery.value,
-                archivo_pdf=archivo_pdf,
+                archivo_pdf=archivo_path,
                 status="rejected",
                 rejection=GradingRejection(
                     rejection_reason=cv.reason,
@@ -324,12 +339,14 @@ class GradingPipeline:
                     detail=None,
                 )
 
+        body_heading = _submission_body_heading(delivery, archivo_path or "")
         grading_out = self._step4_grade_with_json_retries(
             delivery=delivery,
             rubric=request.rubric_content,
             plain_text=plain_text,
             item_question=item_question,
             request_id=request_id,
+            submission_body_heading=body_heading,
         )
         if isinstance(grading_out, ErrorResult):
             return grading_out
@@ -368,7 +385,7 @@ class GradingPipeline:
             ),
             transcription=transcription_field,
             deliverable_kind=delivery.value,
-            archivo_pdf=archivo_pdf,
+            archivo_pdf=archivo_path,
         )
 
     def _validate_request(self, request: object) -> ErrorResult | None:
@@ -410,9 +427,11 @@ class GradingPipeline:
         request_id: str,
     ) -> Union[tuple[str, str, str | None], ErrorResult]:
         """
-        Paso 1: devuelve ``(texto_plano, pregunta_ítem, ruta_pdf_o_None)``.
+        Paso 1: devuelve ``(texto_plano, pregunta_ítem, ruta_artifact_o_None)``.
 
-        ``pregunta_ítem`` se usa en texto/audio; PDF devuelve ruta en el tercer campo.
+        ``pregunta_ítem`` se usa en texto/audio. Para PDF o entrega de código (``.py`` /
+        ``.ipynb``), el tercer campo es la ruta del archivo en disco usada para extracción
+        y metadatos; para texto/audio es ``None``.
         """
         delivery = request.delivery_type
         if delivery == DeliveryType.TEXT:
@@ -439,6 +458,13 @@ class GradingPipeline:
             path = request.content.strip()
             return out, "", path
 
+        if delivery == DeliveryType.CODE_DELIVERABLE:
+            out = self._code_nb.extract(request.content.strip(), request_id=request_id)
+            if isinstance(out, ErrorResult):
+                return out
+            path = request.content.strip()
+            return out, "", path
+
         return ErrorResult(
             error_type=ERROR_TYPE_VALIDATION,
             message="Tipo de entrega no soportado.",
@@ -453,6 +479,7 @@ class GradingPipeline:
         plain_text: str,
         item_question: str,
         request_id: str,
+        submission_body_heading: str,
     ) -> dict | ErrorResult:
         """
         Paso 4: invoca ``GradingService`` y reintenta hasta 3 veces ante fallos
@@ -472,6 +499,7 @@ class GradingPipeline:
                     rubric,
                     plain_text,
                     request_id=request_id,
+                    submission_body_heading=submission_body_heading,
                 )
             if isinstance(out, dict):
                 if attempt:

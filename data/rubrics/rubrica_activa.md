@@ -1,76 +1,147 @@
-# Rúbrica de calificación detallada  
-**Taller Técnico: Análisis de Resolución, Cuantización y Relación Señal-Ruido (SNR) con ESP32**
-
-Esta rúbrica está organizada para su uso en Moodle con 4 niveles de desempeño y los siguientes puntajes por criterio:
-
-| Criterio | Nivel 1 | Nivel 2 | Nivel 3 | Nivel 4 |
-|---|---:|---:|---:|---:|
-| Cálculos teóricos: LSB y SNR | 0 | 4 | 6 | 8 |
-| Análisis experimental del error | 0 | 3 | 4 | 6 |
-| Conclusiones y razonamiento | 0 | 1 | 2 | 3 |
-| Formato IEEE y gráficas | 0 | 1 | 2 | 3 |
-
-## 1. Cálculos teóricos: LSB y SNR
-
-- **Nivel 1 — 0 puntos**  
-  No aplica correctamente las fórmulas de LSB y SNR, omite varias resoluciones o presenta resultados incompatibles con la teoría del taller. Hay errores conceptuales importantes, ausencia de procedimiento o uso incorrecto de unidades.
-
-- **Nivel 2 — 4 puntos**  
-  Presenta cálculos parciales o incompletos del LSB y/o del SNR. Hay errores en una o más resoluciones, en la sustitución de datos o en las unidades. El procedimiento se muestra de forma limitada y no siempre permite verificar cómo obtuvo los resultados.
-
-- **Nivel 3 — 6 puntos**  
-  Calcula correctamente la mayoría de los valores de LSB y SNR para 12, 8 y 6 bits. Puede haber un error menor de redondeo, notación o presentación, pero el procedimiento general es correcto. Las unidades aparecen casi siempre bien usadas y el desarrollo permite seguir el razonamiento.
-
-- **Nivel 4 — 8 puntos**  
-  Calcula correctamente el valor del LSB para 12, 8 y 6 bits usando el rango de 3300 mV. Calcula correctamente el SNR ideal para las tres resoluciones con la ecuación indicada en el taller. Presenta todos los resultados con unidades correctas y consistentes (mV, dB), mostrando procedimiento claro, ordenado y sin errores numéricos ni conceptuales.
-
-## 2. Análisis experimental del error
-
-- **Nivel 1 — 0 puntos**  
-  No relaciona las gráficas de Teleplot con el límite teórico de cuantización, o lo hace de manera incorrecta. No hay justificación técnica basada en la evidencia experimental, o el análisis es meramente descriptivo y no responde al objetivo del taller.
-
-- **Nivel 2 — 3 puntos**  
-  Hace una comparación general entre teoría y experimento, pero sin suficiente precisión. Puede mencionar que el error está “dentro” o “fuera” del rango esperado sin evidencias claras, sin estimar bien la amplitud observada o sin explicar adecuadamente las variaciones.
-
-- **Nivel 3 — 4 puntos**  
-  Compara adecuadamente las gráficas de error con el límite teórico y concluye de forma correcta si los valores observados son razonables. La justificación existe, aunque puede ser breve o poco profunda en la explicación de las variaciones experimentales.
-
-- **Nivel 4 — 6 puntos**  
-  Compara de forma rigurosa los errores observados en `Error_8b[mV]` y `Error_6b[mV]` con el límite teórico de ±(1/2)LSB. Usa las gráficas de Teleplot como evidencia, identifica amplitudes máximas observadas y argumenta con claridad si los datos cumplen o no con el modelo teórico. Explica de manera técnica las diferencias entre teoría y medición, considerando el comportamiento del ruido, la granularidad y las limitaciones del montaje experimental.
-
-## 3. Conclusiones y razonamiento
-
-- **Nivel 1 — 0 puntos**  
-  Afirma incorrectamente que `Mic_12b` es una señal ideal sin error, o da una respuesta sin justificación técnica suficiente. Evidencia confusión conceptual sobre la naturaleza del proceso A/D y el ruido de cuantización.
-
-- **Nivel 2 — 1 punto**  
-  Muestra una comprensión parcial de la pregunta. Reconoce alguna limitación de `Mic_12b`, pero la explicación es ambigua, incompleta o poco conectada con el fundamento matemático del taller.
-
-- **Nivel 3 — 2 puntos**  
-  Responde correctamente la pregunta crítica e identifica que la señal de 12 bits también posee error de cuantización. La justificación es válida, aunque no profundiza completamente en la diferencia entre referencia práctica e ideal teórico.
-
-- **Nivel 4 — 3 puntos**  
-  Responde con precisión que `Mic_12b` no está verdaderamente libre de ruido de cuantización, sino que actúa como la mejor referencia disponible dentro del experimento. Justifica matemáticamente esta idea con claridad, diferenciando entre señal ideal teórica y señal digitalizada real. La conclusión demuestra comprensión profunda de la cuantización y del alcance de la aproximación usada en el código.
-
-## 4. Formato IEEE y gráficas
-
-- **Nivel 1 — 0 puntos**  
-  No se sigue el formato IEEE de forma suficiente o el informe presenta deficiencias severas de estructura. Las gráficas faltan, son ilegibles o no están vinculadas al análisis escrito.
-
-- **Nivel 2 — 1 punto**  
-  El informe presenta cumplimiento parcial del formato IEEE. Las gráficas existen, pero pueden tener problemas de nitidez, ejes poco visibles, escasa relación con el texto o falta de numeración y referencia adecuada.
-
-- **Nivel 3 — 2 puntos**  
-  El informe sigue en gran medida el formato IEEE y presenta gráficas útiles y legibles. Puede haber detalles menores de formato, rotulación o referenciación, pero no afectan seriamente la comprensión del documento.
-
-- **Nivel 4 — 3 puntos**  
-  El informe cumple estrictamente el formato IEEE a doble columna y se mantiene dentro de la extensión máxima solicitada. Las gráficas de Teleplot son claras, legibles, pertinentes y están correctamente integradas al texto. Los ejes, unidades y variables son visibles; las figuras están numeradas, referenciadas y respaldan directamente el análisis presentado.
-
-## Tabla resumen para Moodle
-
-| Criterio | Nivel 1 | Nivel 2 | Nivel 3 | Nivel 4 |
-|---|---:|---:|---:|---:|
-| Cálculos teóricos: LSB y SNR | 0 | 4 | 6 | 8 |
-| Análisis experimental del error | 0 | 3 | 4 | 6 |
-| Conclusiones y razonamiento | 0 | 1 | 2 | 3 |
-| Formato IEEE y gráficas | 0 | 1 | 2 | 3 |
+# Rúbrica de calificación  
+## Pre-Laboratorio: Convertidores D/A — DAC, R-2R y ZOH
+
+**Entregable evaluado:** notebook completado con ejecución de celdas, gráficas generadas, cálculos manuales y respuestas a las preguntas del pre-laboratorio.  
+
+**Puntaje máximo:** 20 puntos  
+**Cantidad de criterios evaluables:** 5  
+**Puntaje por criterio:** 1 a 4 puntos  
+**Peso porcentual por criterio:** 20% cada uno  
+**Porcentaje total:** 100%
+
+> **Nota importante:** La **pregunta 7 NO debe ser tenida en cuenta** para la calificación.  
+> No debe asignarse puntaje, penalización ni bonificación por la respuesta a la pregunta 7.  
+> La evaluación de las preguntas de análisis debe realizarse únicamente con las demás preguntas del entregable.
+
+---
+
+## Escala general de desempeño
+
+| Nivel | Puntaje | Descripción general |
+|---|---:|---|
+| Insuficiente | 1 punto | Evidencia mínima, incompleta o incorrecta. |
+| Básico | 2 puntos | Cumple parcialmente, con errores conceptuales o procedimentales importantes. |
+| Bueno | 3 puntos | Cumple adecuadamente, con errores menores o explicaciones mejorables. |
+| Excelente | 4 puntos | Cumple completamente, con precisión técnica, claridad y justificación. |
+
+---
+
+## Criterios evaluables
+
+| Criterio | Peso | Puntaje máximo | Insuficiente — 1 punto | Básico — 2 puntos | Bueno — 3 puntos | Excelente — 4 puntos |
+|---|---:|---:|---|---|---|---|
+| **1. Ejecución completa del notebook y presentación del entregable** | **20%** | **4 puntos** | El notebook está incompleto, no ejecutado o no permite verificar resultados, gráficas ni respuestas. | Ejecuta solo algunas secciones; faltan salidas, gráficas o respuestas en varias partes del pre-laboratorio. | Ejecuta la mayoría de las celdas y presenta la mayoría de las gráficas y respuestas, con pequeñas omisiones. | Entrega el notebook completo, ordenado, ejecutado en secuencia, con todas las salidas, gráficas y respuestas visibles. |
+| **2. Cálculos de resolución, niveles, LSB y relación entre DACs** | **20%** | **4 puntos** | No calcula correctamente niveles, LSB o relación entre DACs de 4 y 8 bits. | Calcula parcialmente niveles o LSB, pero presenta errores de fórmula, unidades o interpretación. | Calcula correctamente la mayoría de valores de LSB, número de niveles y relación entre DACs, con errores menores. | Calcula correctamente niveles, LSB de 4 y 8 bits, relación de resolución y explica con claridad por qué el DAC de 8 bits tiene escalones más finos. |
+| **3. Análisis de la red R-2R y efecto de tolerancias** | **20%** | **4 puntos** | No identifica correctamente el funcionamiento de la red R-2R ni el efecto de las tolerancias. | Reconoce parcialmente la relación entre código binario y voltaje, pero comete errores importantes en los cálculos o en la recomendación de tolerancia. | Calcula adecuadamente salidas para códigos binarios y error máximo permitido, con justificación básica de la tolerancia recomendada. | Calcula correctamente las salidas para códigos como `0101` y `1010`, relaciona los valores con `Vref`, calcula el error máximo permitido y justifica técnicamente la tolerancia recomendada. |
+| **4. Interpretación de generación senoidal, cuantización y Zero-Order Hold** | **20%** | **4 puntos** | No explica correctamente la cuantización, los escalones ni el efecto ZOH en la señal. | Describe de forma general los escalones o el ZOH, pero con poca relación con frecuencia, resolución o muestras por ciclo. | Explica adecuadamente la diferencia visual entre DAC de 8 bits y R-2R de 4 bits, y relaciona el ZOH con la cantidad de muestras por ciclo. | Interpreta con precisión la generación senoidal, la cuantización, el tamaño del escalón, el efecto ZOH, la derivada de la señal y la relación entre pendiente y error de retención. |
+| **5. Respuestas a las preguntas de análisis y argumentación técnica** | **20%** | **4 puntos** | No responde varias preguntas evaluables o las respuestas son incoherentes, incompletas o sin sustento técnico. | Responde parcialmente las preguntas evaluables, pero con errores conceptuales en Nyquist, ZOH, sinc, unidades o interpretación de resultados. | Responde la mayoría de las preguntas evaluables con argumentos adecuados, aunque algunas justificaciones son generales o poco desarrolladas. | Responde todas las preguntas evaluables con cálculos paso a paso, unidades correctas, interpretación técnica y conclusiones claras sobre LSB, R-2R, tolerancias, ZOH, Nyquist y atenuación sinc. |
+
+---
+
+## Descripción de los ítems evaluados por criterio
+
+### Criterio 1: Ejecución completa del notebook y presentación del entregable  
+**Peso:** 20%  
+**Puntaje máximo:** 4 puntos  
+
+Se evalúa que el estudiante entregue el notebook completo, ejecutado en orden y con evidencia verificable de trabajo.
+
+- Ejecución secuencial de las celdas.
+- Visualización correcta de gráficas.
+- Salidas numéricas visibles.
+- Respuestas diligenciadas en los espacios correspondientes.
+- Orden y legibilidad del entregable.
+- **La pregunta 7 no se considera para asignar ni descontar puntaje.**
+
+---
+
+### Criterio 2: Cálculos de resolución, niveles, LSB y relación entre DACs  
+**Peso:** 20%  
+**Puntaje máximo:** 4 puntos  
+
+Se evalúa la comprensión de la función de transferencia del DAC y la comparación entre resolución de 4 bits y 8 bits.
+
+- Cálculo de número de niveles: `N = 2^b`.
+- Cálculo de LSB: `LSB = V_ref / 2^b`.
+- Comparación entre LSB de 4 bits y 8 bits.
+- Interpretación de cuántas veces más fino es el escalón del DAC de 8 bits.
+- Uso correcto de unidades en V o mV.
+
+---
+
+### Criterio 3: Análisis de la red R-2R y efecto de tolerancias  
+**Peso:** 20%  
+**Puntaje máximo:** 4 puntos  
+
+Se evalúa la comprensión del DAC R-2R de 4 bits, su relación con el código binario y el impacto de errores resistivos.
+
+- Cálculo de salida para códigos binarios específicos, como `0101` y `1010`.
+- Relación entre código digital, peso binario y voltaje de salida.
+- Cálculo del error máximo permitido: `LSB / 2`.
+- Interpretación de la tabla de tolerancias.
+- Recomendación justificada de tolerancia de resistencias.
+
+---
+
+### Criterio 4: Interpretación de generación senoidal, cuantización y Zero-Order Hold  
+**Peso:** 20%  
+**Puntaje máximo:** 4 puntos  
+
+Se evalúa la interpretación de las señales generadas por DACs de distinta resolución y el comportamiento del ZOH.
+
+- Comparación entre senoidal generada con DAC de 8 bits y R-2R de 4 bits.
+- Explicación del efecto de la cuantización.
+- Relación entre tamaño del escalón y número de bits.
+- Interpretación del ZOH como retención de muestra.
+- Relación entre pendiente de la señal y error ZOH.
+
+---
+
+### Criterio 5: Respuestas a las preguntas de análisis y argumentación técnica  
+**Peso:** 20%  
+**Puntaje máximo:** 4 puntos  
+
+Se evalúa la calidad de las respuestas a las preguntas del pre-laboratorio, **excluyendo explícitamente la pregunta 7**.
+
+- Respuestas completas a todas las preguntas evaluables.
+- Procedimientos de cálculo claros.
+- Justificación técnica, no solo numérica.
+- Uso adecuado de conceptos como Nyquist, muestras por ciclo, ZOH y función sinc.
+- Conclusiones coherentes con las gráficas y resultados del notebook.
+- **La pregunta 7 NO debe ser evaluada.**
+- **La pregunta 7 NO debe afectar el puntaje del criterio.**
+- **La pregunta 7 NO debe generar penalización si está incompleta, incorrecta o ausente.**
+
+---
+
+## Cálculo de la nota
+
+**Puntaje total obtenido:** suma de los puntos asignados en los 5 criterios.
+
+**Puntaje máximo:** 20 puntos.
+
+**Nota final sobre 5.0:**
+
+`Nota final = (Puntaje obtenido / 20) × 5.0`
+
+**Porcentaje obtenido:**
+
+`Porcentaje obtenido = (Puntaje obtenido / 20) × 100`
+
+---
+
+## Condición sugerida de aprobación
+
+El estudiante aprueba el pre-laboratorio si obtiene al menos:
+
+- **12 de 20 puntos**, equivalente al **60%**, o
+- la nota mínima definida por el docente para la actividad.
+
+---
+
+## Aclaración final sobre la pregunta 7
+
+La **pregunta 7 queda excluida de la evaluación**.  
+No se debe revisar para asignar puntaje.  
+No se debe usar para descontar puntaje.  
+No se debe considerar dentro de las respuestas exigidas para obtener el nivel **Excelente** en ningún criterio.

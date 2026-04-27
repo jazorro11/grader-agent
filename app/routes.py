@@ -13,6 +13,7 @@ from openai import OpenAIError
 
 from app.grading_http import (
     build_audio_grading_request,
+    build_code_deliverable_grading_request,
     build_pdf_grading_request,
     build_text_grading_request,
     error_result_http_response,
@@ -52,6 +53,15 @@ def _guardar_resultado(_alumno: str, resultado: dict) -> None:
     datos.append(resultado)
     ruta.parent.mkdir(parents=True, exist_ok=True)
     ruta.write_text(json.dumps(datos, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _suffix_entregable_multimodal(filename: str) -> str | None:
+    """Sufijo temporal válido para PDF, Python o Jupyter; ``None`` si la extensión no está permitida."""
+    low = (filename or "").lower()
+    for suf in (".pdf", ".py", ".ipynb"):
+        if low.endswith(suf):
+            return suf
+    return None
 
 
 def _contenido_rubrica_desde_upload(archivo):
@@ -182,25 +192,36 @@ def register_routes(app: Flask) -> None:
 
     @app.route("/calificar-entregable", methods=["POST"])
     def calificar_entregable():
-        pdf = request.files.get("pdf")
+        archivo = request.files.get("entregable") or request.files.get("pdf")
         nombre_alumno = request.form.get("alumno", "Alumno")
 
-        if not pdf:
-            return jsonify({"error": "No se recibió PDF"}), 400
+        if not archivo:
+            return jsonify({"error": "No se recibió archivo de entrega"}), 400
+
+        suf = _suffix_entregable_multimodal(archivo.filename or "")
+        if suf is None:
+            return jsonify({"error": "Solo se aceptan archivos .pdf, .py o .ipynb"}), 400
 
         rubrica = _leer_rubrica_activa()
         if not rubrica:
             return jsonify({"error": "Primero cargá una rúbrica (.md) en este bloque"}), 400
 
-        fd, ruta_pdf = tempfile.mkstemp(suffix=".pdf")
+        fd, ruta_tmp = tempfile.mkstemp(suffix=suf)
         os.close(fd)
         try:
-            pdf.save(ruta_pdf)
-            pipe_req = build_pdf_grading_request(
-                rubric=rubrica,
-                student_name=nombre_alumno,
-                pdf_path=ruta_pdf,
-            )
+            archivo.save(ruta_tmp)
+            if suf == ".pdf":
+                pipe_req = build_pdf_grading_request(
+                    rubric=rubrica,
+                    student_name=nombre_alumno,
+                    pdf_path=ruta_tmp,
+                )
+            else:
+                pipe_req = build_code_deliverable_grading_request(
+                    rubric=rubrica,
+                    student_name=nombre_alumno,
+                    file_path=ruta_tmp,
+                )
             out = run_grading_request(pipe_req)
             if isinstance(out, ErrorResult):
                 return error_result_http_response(out)
@@ -215,31 +236,33 @@ def register_routes(app: Flask) -> None:
             _guardar_resultado(nombre_alumno, resultado)
             return jsonify(resultado)
         finally:
-            if os.path.isfile(ruta_pdf):
+            if os.path.isfile(ruta_tmp):
                 try:
-                    os.remove(ruta_pdf)
+                    os.remove(ruta_tmp)
                 except OSError:
                     pass
 
     @app.route("/calificar-carpeta-entregables", methods=["POST"])
     def calificar_carpeta_entregables():
-        pdfs = request.files.getlist("pdf")
+        entregables = request.files.getlist("entregable")
+        pdfs_legacy = request.files.getlist("pdf")
+        archivos_subida = entregables if entregables else pdfs_legacy
         alumnos = request.form.getlist("alumno")
         nombres_completos = request.form.getlist("nombre_completo")
         ids = request.form.getlist("id_estudiante")
         carpetas = request.form.getlist("carpeta_origen")
         archivos = request.form.getlist("archivo_pdf")
 
-        if not pdfs:
-            return jsonify({"error": "No se recibieron archivos PDF"}), 400
+        if not archivos_subida:
+            return jsonify({"error": "No se recibieron archivos de entrega (.pdf, .py o .ipynb)"}), 400
 
-        n = len(pdfs)
+        n = len(archivos_subida)
         if len(alumnos) != n:
             return (
                 jsonify(
                     {
                         "error": (
-                            "La cantidad de valores «alumno» no coincide con la de archivos PDF"
+                            "La cantidad de valores «alumno» no coincide con la de archivos de entrega"
                         )
                     }
                 ),
@@ -296,10 +319,10 @@ def register_routes(app: Flask) -> None:
         errores: list[dict] = []
 
         for i in range(n):
-            pdf = pdfs[i]
+            sub = archivos_subida[i]
             alumno = alumnos[i] or "Alumno"
             carpeta = carpetas[i]
-            archivo_nom = archivos[i] or (pdf.filename or "")
+            archivo_nom = archivos[i] or (sub.filename or "")
 
             parsed = parse_carpeta_moodle(carpeta) if carpeta else {}
             nombre_completo = (nombres_completos[i] or "").strip() or parsed.get(
@@ -310,17 +333,35 @@ def register_routes(app: Flask) -> None:
             if not nombre_completo:
                 nombre_completo = alumno
 
+            suf = _suffix_entregable_multimodal(sub.filename or "")
+            if suf is None:
+                errores.append(
+                    {
+                        "alumno": alumno,
+                        "carpeta_origen": carpeta,
+                        "error": "Extensión no permitida (solo .pdf, .py o .ipynb).",
+                    }
+                )
+                continue
+
             resultado_dict: dict | None = None
-            fd, ruta_tmp = tempfile.mkstemp(suffix=".pdf")
+            fd, ruta_tmp = tempfile.mkstemp(suffix=suf)
             os.close(fd)
             try:
-                pdf.save(ruta_tmp)
+                sub.save(ruta_tmp)
                 try:
-                    pipe_req = build_pdf_grading_request(
-                        rubric=rubrica,
-                        student_name=alumno,
-                        pdf_path=ruta_tmp,
-                    )
+                    if suf == ".pdf":
+                        pipe_req = build_pdf_grading_request(
+                            rubric=rubrica,
+                            student_name=alumno,
+                            pdf_path=ruta_tmp,
+                        )
+                    else:
+                        pipe_req = build_code_deliverable_grading_request(
+                            rubric=rubrica,
+                            student_name=alumno,
+                            file_path=ruta_tmp,
+                        )
                     out = run_grading_request(pipe_req)
                     if isinstance(out, ErrorResult):
                         errores.append(
@@ -354,7 +395,7 @@ def register_routes(app: Flask) -> None:
                             }
                         )
                 except Exception:
-                    _logger.exception("Unexpected error while grading PDF for alumno=%s", alumno)
+                    _logger.exception("Unexpected error while grading entregable for alumno=%s", alumno)
                     errores.append(
                         {
                             "alumno": alumno,

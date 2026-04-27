@@ -174,7 +174,7 @@
   <p class="eyebrow">Multimodal AI grading assistant</p>
   <h1>Grader Agent</h1>
   <p class="lede">
-    Portfolio demo for educators: upload a Markdown rubric, then grade <strong>PDF submissions</strong> (text extracted, up to {{ pdf_max_pages }} {% if pdf_max_pages == 1 %}page{% else %}pages{% endif %}),
+    Portfolio demo for educators: upload a Markdown rubric, then grade <strong>PDF, Python (.py) or Jupyter (.ipynb)</strong> submissions (plain text extracted from the file; PDFs up to {{ pdf_max_pages }} {% if pdf_max_pages == 1 %}page{% else %}pages{% endif %}),
     or single <strong>text / audio</strong> answers (audio is transcribed before scoring). Outputs are <strong>suggestions</strong> — teachers remain responsible for final marks and fairness.
   </p>
 </header>
@@ -183,7 +183,7 @@
 <div class="card">
   <h2>1. Rúbrica y entregable del alumno</h2>
   <p style="font-size:0.88rem;color:#6c757d;margin-bottom:1rem;">
-    Cargá la rúbrica (.md) y el PDF del estudiante. La opción principal es evaluar el entregable completo según cada criterio de la rúbrica.
+    Cargá la rúbrica (.md) y el entregable del estudiante (PDF, .py o .ipynb). Se evalúa el texto/código extraído según cada criterio de la rúbrica.
   </p>
 
   <div class="rubric-entregable-grid">
@@ -197,9 +197,9 @@
     </div>
     <div class="zona">
       <h3>Entregable del alumno</h3>
-      <p class="hint">PDF del estudiante (máx. {{ pdf_max_pages }} {% if pdf_max_pages == 1 %}página{% else %}páginas{% endif %}). Se evalúa el texto extraído del archivo.</p>
+      <p class="hint">PDF (máx. {{ pdf_max_pages }} {% if pdf_max_pages == 1 %}página{% else %}páginas{% endif %}), archivo Python o notebook Jupyter. Se evalúa el texto o celdas de código extraídas.</p>
       <input type="text" id="nombre-alumno-entregable" placeholder="Nombre del alumno">
-      <input type="file" id="archivo-pdf-entregable" accept=".pdf">
+      <input type="file" id="archivo-entregable-multimodal" accept=".pdf,.py,.ipynb,application/pdf">
       <button type="button" class="btn-success" onclick="calificarEntregable()">Evaluar entregable con la rúbrica</button>
       <span class="spinner" id="spinner-entregable">⏳ Extrayendo y calificando...</span>
     </div>
@@ -215,10 +215,10 @@
     <p style="font-size:0.85rem;color:#6c757d;margin-bottom:0.75rem;line-height:1.4;">
       Elegí la carpeta que contiene las entregas (o una carpeta padre, p. ej. la de la tarea): se detecta en la ruta cada
       <code style="font-size:0.8rem;">NOMBRE_######_assignsubmission_file</code>
-      y dentro debe haber un PDF (ej. «solución tinyML.pdf»). Chrome o Edge recomendados.
-      Si hay más de un PDF en la carpeta del alumno, completá el filtro por texto en el nombre del archivo.
+      y dentro debe haber <strong>un solo</strong> entregable admitido: PDF, <code>.py</code> o <code>.ipynb</code> (ej. «tarea.ipynb»). Chrome o Edge recomendados.
+      Si hay más de un archivo admitido en la carpeta del alumno, completá el filtro por texto en el nombre del archivo.
     </p>
-    <input type="text" id="filtro-nombre-pdf" placeholder="Contiene en el nombre del archivo (ej. tinyML) — opcional si hay un solo PDF">
+    <input type="text" id="filtro-nombre-pdf" placeholder="Contiene en el nombre del archivo (ej. tinyML) — opcional si hay un solo entregable">
     <input type="file" id="archivo-carpeta-entregas" webkitdirectory multiple style="margin-bottom:0.6rem;">
     <div style="margin-bottom:0.75rem;">
       <button type="button" class="btn-success" id="btn-carpeta-entregas" onclick="calificarCarpetaEntregables()">
@@ -321,17 +321,26 @@
     }
   }
 
+  function esExtensionEntregableMultimodal(name) {
+    var n = (name || "").toLowerCase();
+    return n.endsWith(".pdf") || n.endsWith(".py") || n.endsWith(".ipynb");
+  }
+
   async function calificarEntregable() {
     const alumno = document.getElementById("nombre-alumno-entregable").value.trim();
-    const archivo = document.getElementById("archivo-pdf-entregable").files[0];
+    const archivo = document.getElementById("archivo-entregable-multimodal").files[0];
     if (!alumno) { alert("Escribí el nombre del alumno"); return; }
-    if (!archivo) { alert("Seleccioná un archivo PDF"); return; }
+    if (!archivo) { alert("Seleccioná un archivo (.pdf, .py o .ipynb)"); return; }
+    if (!esExtensionEntregableMultimodal(archivo.name)) {
+      alert("Solo se aceptan archivos .pdf, .py o .ipynb");
+      return;
+    }
 
     document.getElementById("spinner-entregable").style.display = "inline";
     document.getElementById("resultado-entregable").style.display = "none";
 
     const form = new FormData();
-    form.append("pdf", archivo);
+    form.append("entregable", archivo);
     form.append("alumno", alumno);
 
     const res = await fetch("/calificar-entregable", { method: "POST", body: form });
@@ -410,30 +419,30 @@
     for (var i = 0; i < keys.length; i++) {
       var folder = keys[i];
       var files = byFolder[folder];
-      var pdfs = files.filter(function (f) { return f.name.toLowerCase().endsWith(".pdf"); });
+      var entregables = files.filter(function (f) { return esExtensionEntregableMultimodal(f.name); });
       var chosen;
       if (filtroN) {
-        chosen = pdfs.filter(function (f) {
+        chosen = entregables.filter(function (f) {
           return normalizarNombreArchivo(f.name).indexOf(filtroN) !== -1;
         });
       } else {
-        if (pdfs.length !== 1) {
+        if (entregables.length !== 1) {
           errs.push({
             carpeta: folder,
-            msg: pdfs.length === 0
-              ? "No hay ningún PDF en la carpeta."
-              : "Hay varios PDFs: indicá un texto que filtre el archivo (ej. tinyML)."
+            msg: entregables.length === 0
+              ? "No hay ningún entregable admitido (.pdf, .py o .ipynb) en la carpeta."
+              : "Hay varios entregables admitidos: usá el filtro por nombre (ej. solucion)."
           });
           continue;
         }
-        chosen = pdfs;
+        chosen = entregables;
       }
       if (chosen.length !== 1) {
         errs.push({
           carpeta: folder,
           msg: chosen.length === 0
-            ? "Ningún PDF coincide con el filtro por nombre."
-            : "Más de un PDF coincide con el filtro; acotá más el texto."
+            ? "Ningún entregable coincide con el filtro por nombre."
+            : "Más de un entregable coincide con el filtro; acotá más el texto."
         });
         continue;
       }
@@ -479,7 +488,7 @@
     var form = new FormData();
     for (var j = 0; j < built.ok.length; j++) {
       var row = built.ok[j];
-      form.append("pdf", row.file, row.archivo_pdf);
+      form.append("entregable", row.file, row.archivo_pdf);
       form.append("alumno", row.alumno);
       form.append("nombre_completo", row.nombre_completo);
       form.append("id_estudiante", row.id_estudiante);
@@ -606,7 +615,7 @@
   }
 
   function esResultadoPorCriterios(r) {
-    return r.tipo === "entregable_pdf" || r.tipo === "informe_pdf";
+    return r.tipo === "entregable_pdf" || r.tipo === "entregable_codigo" || r.tipo === "informe_pdf";
   }
 
   async function cargarResultados() {
@@ -626,7 +635,7 @@
       if (!totales[r.alumno]) totales[r.alumno] = { obtenido: 0, maximo: 0 };
 
       if (esResultadoPorCriterios(r)) {
-        var labelPdf = r.tipo === "entregable_pdf" ? "Entregable" : "PDF";
+        var labelPdf = r.tipo === "entregable_codigo" ? "Código" : (r.tipo === "entregable_pdf" ? "Entregable" : "PDF");
         (r.criterios || []).forEach(function (c) {
           totales[r.alumno].obtenido += c.puntaje_obtenido;
           totales[r.alumno].maximo += c.puntaje_maximo;
