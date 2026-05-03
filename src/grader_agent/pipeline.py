@@ -164,6 +164,9 @@ def _parse_audio_delivery(
 def _submission_body_heading(delivery: DeliveryType, artifact_path: str) -> str:
     """Encabezado del bloque de entrega en el prompt de calificación multi-criterio."""
     if delivery == DeliveryType.PDF_DELIVERABLE:
+        low = (artifact_path or "").lower()
+        if low.endswith(".docx"):
+            return "TEXTO PLANO DEL ENTREGABLE (DOCX)"
         return "TEXTO PLANO DEL ENTREGABLE (PDF)"
     if delivery == DeliveryType.CODE_DELIVERABLE:
         low = artifact_path.lower()

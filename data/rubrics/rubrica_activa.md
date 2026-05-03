@@ -1,147 +1,41 @@
-# Rúbrica de calificación  
-## Pre-Laboratorio: Convertidores D/A — DAC, R-2R y ZOH
-
-**Entregable evaluado:** notebook completado con ejecución de celdas, gráficas generadas, cálculos manuales y respuestas a las preguntas del pre-laboratorio.  
-
-**Puntaje máximo:** 20 puntos  
-**Cantidad de criterios evaluables:** 5  
-**Puntaje por criterio:** 1 a 4 puntos  
-**Peso porcentual por criterio:** 20% cada uno  
-**Porcentaje total:** 100%
-
-> **Nota importante:** La **pregunta 7 NO debe ser tenida en cuenta** para la calificación.  
-> No debe asignarse puntaje, penalización ni bonificación por la respuesta a la pregunta 7.  
-> La evaluación de las preguntas de análisis debe realizarse únicamente con las demás preguntas del entregable.
-
----
-
-## Escala general de desempeño
-
-| Nivel | Puntaje | Descripción general |
-|---|---:|---|
-| Insuficiente | 1 punto | Evidencia mínima, incompleta o incorrecta. |
-| Básico | 2 puntos | Cumple parcialmente, con errores conceptuales o procedimentales importantes. |
-| Bueno | 3 puntos | Cumple adecuadamente, con errores menores o explicaciones mejorables. |
-| Excelente | 4 puntos | Cumple completamente, con precisión técnica, claridad y justificación. |
-
----
-
-## Criterios evaluables
-
-| Criterio | Peso | Puntaje máximo | Insuficiente — 1 punto | Básico — 2 puntos | Bueno — 3 puntos | Excelente — 4 puntos |
-|---|---:|---:|---|---|---|---|
-| **1. Ejecución completa del notebook y presentación del entregable** | **20%** | **4 puntos** | El notebook está incompleto, no ejecutado o no permite verificar resultados, gráficas ni respuestas. | Ejecuta solo algunas secciones; faltan salidas, gráficas o respuestas en varias partes del pre-laboratorio. | Ejecuta la mayoría de las celdas y presenta la mayoría de las gráficas y respuestas, con pequeñas omisiones. | Entrega el notebook completo, ordenado, ejecutado en secuencia, con todas las salidas, gráficas y respuestas visibles. |
-| **2. Cálculos de resolución, niveles, LSB y relación entre DACs** | **20%** | **4 puntos** | No calcula correctamente niveles, LSB o relación entre DACs de 4 y 8 bits. | Calcula parcialmente niveles o LSB, pero presenta errores de fórmula, unidades o interpretación. | Calcula correctamente la mayoría de valores de LSB, número de niveles y relación entre DACs, con errores menores. | Calcula correctamente niveles, LSB de 4 y 8 bits, relación de resolución y explica con claridad por qué el DAC de 8 bits tiene escalones más finos. |
-| **3. Análisis de la red R-2R y efecto de tolerancias** | **20%** | **4 puntos** | No identifica correctamente el funcionamiento de la red R-2R ni el efecto de las tolerancias. | Reconoce parcialmente la relación entre código binario y voltaje, pero comete errores importantes en los cálculos o en la recomendación de tolerancia. | Calcula adecuadamente salidas para códigos binarios y error máximo permitido, con justificación básica de la tolerancia recomendada. | Calcula correctamente las salidas para códigos como `0101` y `1010`, relaciona los valores con `Vref`, calcula el error máximo permitido y justifica técnicamente la tolerancia recomendada. |
-| **4. Interpretación de generación senoidal, cuantización y Zero-Order Hold** | **20%** | **4 puntos** | No explica correctamente la cuantización, los escalones ni el efecto ZOH en la señal. | Describe de forma general los escalones o el ZOH, pero con poca relación con frecuencia, resolución o muestras por ciclo. | Explica adecuadamente la diferencia visual entre DAC de 8 bits y R-2R de 4 bits, y relaciona el ZOH con la cantidad de muestras por ciclo. | Interpreta con precisión la generación senoidal, la cuantización, el tamaño del escalón, el efecto ZOH, la derivada de la señal y la relación entre pendiente y error de retención. |
-| **5. Respuestas a las preguntas de análisis y argumentación técnica** | **20%** | **4 puntos** | No responde varias preguntas evaluables o las respuestas son incoherentes, incompletas o sin sustento técnico. | Responde parcialmente las preguntas evaluables, pero con errores conceptuales en Nyquist, ZOH, sinc, unidades o interpretación de resultados. | Responde la mayoría de las preguntas evaluables con argumentos adecuados, aunque algunas justificaciones son generales o poco desarrolladas. | Responde todas las preguntas evaluables con cálculos paso a paso, unidades correctas, interpretación técnica y conclusiones claras sobre LSB, R-2R, tolerancias, ZOH, Nyquist y atenuación sinc. |
-
----
-
-## Descripción de los ítems evaluados por criterio
-
-### Criterio 1: Ejecución completa del notebook y presentación del entregable  
-**Peso:** 20%  
-**Puntaje máximo:** 4 puntos  
-
-Se evalúa que el estudiante entregue el notebook completo, ejecutado en orden y con evidencia verificable de trabajo.
-
-- Ejecución secuencial de las celdas.
-- Visualización correcta de gráficas.
-- Salidas numéricas visibles.
-- Respuestas diligenciadas en los espacios correspondientes.
-- Orden y legibilidad del entregable.
-- **La pregunta 7 no se considera para asignar ni descontar puntaje.**
-
----
-
-### Criterio 2: Cálculos de resolución, niveles, LSB y relación entre DACs  
-**Peso:** 20%  
-**Puntaje máximo:** 4 puntos  
-
-Se evalúa la comprensión de la función de transferencia del DAC y la comparación entre resolución de 4 bits y 8 bits.
-
-- Cálculo de número de niveles: `N = 2^b`.
-- Cálculo de LSB: `LSB = V_ref / 2^b`.
-- Comparación entre LSB de 4 bits y 8 bits.
-- Interpretación de cuántas veces más fino es el escalón del DAC de 8 bits.
-- Uso correcto de unidades en V o mV.
-
----
-
-### Criterio 3: Análisis de la red R-2R y efecto de tolerancias  
-**Peso:** 20%  
-**Puntaje máximo:** 4 puntos  
-
-Se evalúa la comprensión del DAC R-2R de 4 bits, su relación con el código binario y el impacto de errores resistivos.
-
-- Cálculo de salida para códigos binarios específicos, como `0101` y `1010`.
-- Relación entre código digital, peso binario y voltaje de salida.
-- Cálculo del error máximo permitido: `LSB / 2`.
-- Interpretación de la tabla de tolerancias.
-- Recomendación justificada de tolerancia de resistencias.
-
----
-
-### Criterio 4: Interpretación de generación senoidal, cuantización y Zero-Order Hold  
-**Peso:** 20%  
-**Puntaje máximo:** 4 puntos  
-
-Se evalúa la interpretación de las señales generadas por DACs de distinta resolución y el comportamiento del ZOH.
-
-- Comparación entre senoidal generada con DAC de 8 bits y R-2R de 4 bits.
-- Explicación del efecto de la cuantización.
-- Relación entre tamaño del escalón y número de bits.
-- Interpretación del ZOH como retención de muestra.
-- Relación entre pendiente de la señal y error ZOH.
-
----
-
-### Criterio 5: Respuestas a las preguntas de análisis y argumentación técnica  
-**Peso:** 20%  
-**Puntaje máximo:** 4 puntos  
-
-Se evalúa la calidad de las respuestas a las preguntas del pre-laboratorio, **excluyendo explícitamente la pregunta 7**.
-
-- Respuestas completas a todas las preguntas evaluables.
-- Procedimientos de cálculo claros.
-- Justificación técnica, no solo numérica.
-- Uso adecuado de conceptos como Nyquist, muestras por ciclo, ZOH y función sinc.
-- Conclusiones coherentes con las gráficas y resultados del notebook.
-- **La pregunta 7 NO debe ser evaluada.**
-- **La pregunta 7 NO debe afectar el puntaje del criterio.**
-- **La pregunta 7 NO debe generar penalización si está incompleta, incorrecta o ausente.**
-
----
-
-## Cálculo de la nota
-
-**Puntaje total obtenido:** suma de los puntos asignados en los 5 criterios.
-
-**Puntaje máximo:** 20 puntos.
-
-**Nota final sobre 5.0:**
-
-`Nota final = (Puntaje obtenido / 20) × 5.0`
-
-**Porcentaje obtenido:**
-
-`Porcentaje obtenido = (Puntaje obtenido / 20) × 100`
-
----
-
-## Condición sugerida de aprobación
-
-El estudiante aprueba el pre-laboratorio si obtiene al menos:
-
-- **12 de 20 puntos**, equivalente al **60%**, o
-- la nota mínima definida por el docente para la actividad.
-
----
-
-## Aclaración final sobre la pregunta 7
-
-La **pregunta 7 queda excluida de la evaluación**.  
-No se debe revisar para asignar puntaje.  
-No se debe usar para descontar puntaje.  
-No se debe considerar dentro de las respuestas exigidas para obtener el nivel **Excelente** en ningún criterio.
+# Rúbrica de calificación — Laboratorio de acondicionamiento de señales
+
+**Puntaje base total:** 32 puntos  
+**Número de criterios:** 8  
+**Puntaje por criterio:** 1 a 4 puntos  
+**Orden de niveles:** Insuficiente → Parcial → Satisfactorio → Excelente  
+**Penalización por entrega tarde:** se aplica al puntaje base obtenido.
+
+## Tabla de rúbrica
+
+| Criterio | Insuficiente (1 punto) | Parcial (2 puntos) | Satisfactorio (3 puntos) | Excelente (4 puntos) | Puntaje |
+|---|---|---|---|---|---:|
+| **Construcción del IA en Falstad** | No construye el amplificador instrumental o el circuito no funciona. Faltan bloques esenciales, conexiones básicas o referencias de tierra. No se evidencia una salida útil ni una relación clara entre entradas y salida. | Construye parcialmente el IA, pero presenta errores funcionales importantes: resistencias mal conectadas, valores incorrectos, configuración incompleta de los op-amps o salida incoherente. El circuito permite identificar la intención, pero no valida adecuadamente la ganancia diferencial. | Construye un IA funcional con un error menor de conexión, valor o configuración. La salida es razonablemente coherente con la entrada diferencial, aunque puede presentar pequeñas inconsistencias o falta de verificación completa. | Construye correctamente el IA de tres op-amps en Falstad, con resistencias y conexiones adecuadas. El circuito es funcional, estable y permite observar la amplificación diferencial esperada. La simulación evidencia que el bloque cumple su función dentro de la cadena de adquisición. | ___ / 4 |
+| **Medición y verificación del CMRR** | No realiza la medición de modo común ni presenta evidencia de rechazo de ruido. No distingue entre señal diferencial y señal común, o no interpreta el propósito del CMRR en el sistema. | Intenta medir el comportamiento frente al modo común, pero la interpretación es incorrecta o incompleta. Puede aplicar señales inadecuadas, registrar datos insuficientes o confundir amplificación diferencial con rechazo de modo común. | Realiza la prueba de modo común y obtiene resultados razonables, aunque con errores menores en el cálculo, en la interpretación o en la comparación con el comportamiento esperado. Reconoce que la salida debe ser mucho menor que la señal común aplicada. | Mide y analiza correctamente el rechazo de modo común. Aplica señales iguales en ambas entradas, observa una salida muy reducida y explica por qué el IA debe amplificar la diferencia entre entradas y rechazar componentes comunes como el ruido de 60 Hz. Relaciona adecuadamente la medición con el concepto de CMRR. | ___ / 4 |
+| **Uso de Filter Wizard** | No usa la herramienta, no presenta resultados del diseño o entrega información que no corresponde a las especificaciones solicitadas. No hay evidencia clara de selección del filtro pasa-bajos. | Accede a Filter Wizard, pero no interpreta correctamente las especificaciones o los resultados. Puede seleccionar mal el tipo de filtro, omitir etapas, no registrar componentes o no relacionar el diseño con la frecuencia de corte y atenuación solicitadas. | Usa la herramienta con pequeños errores. Selecciona el filtro pasa-bajos y registra la mayoría de datos relevantes, pero puede faltar alguna ganancia, componente, captura o explicación de la respuesta en frecuencia. | Usa correctamente Filter Wizard para diseñar el filtro pasa-bajos. Registra con claridad tipo de filtro, orden, etapas Sallen-Key, ganancias y componentes. Incluye evidencia de la gráfica de magnitud y del circuito, y relaciona el diseño con la frecuencia de corte de 10 kHz y la atenuación esperada a 40 kHz. | ___ / 4 |
+| **Implementación del filtro en Falstad** | No construye el filtro en Falstad o el circuito no funciona. No hay evidencia de una respuesta pasa-bajos ni de mediciones en frecuencia. | Construye un filtro con errores importantes de conexión, valores, orden de etapas o configuración de op-amps. Presenta pocas mediciones o datos insuficientes para verificar el comportamiento del filtro. | Implementa un filtro funcional y realiza la mayoría de mediciones solicitadas. Puede presentar omisiones menores en frecuencias, valores o interpretación, pero se evidencia una reducción de la señal en frecuencias altas. | Implementa correctamente en Falstad el filtro diseñado en Filter Wizard, respetando las etapas y valores reportados. Realiza mediciones completas a 100 Hz, 1 kHz, 10 kHz, 20 kHz y 40 kHz. Interpreta adecuadamente banda de paso, transición y rechazo, mostrando el comportamiento esperado de un filtro pasa-bajos. | ___ / 4 |
+| **Integración de la cadena completa** | No logra integrar entrada, IA, filtro y carga, o la simulación integrada no funciona. No presenta evidencia suficiente de la señal en las distintas etapas. | Integra parcialmente la cadena, pero faltan bloques o existen errores de conexión que impiden validar el comportamiento completo. La explicación de las etapas es superficial o no corresponde a los resultados observados. | Integra casi toda la cadena y registra la mayoría de puntos de medición. Explica la función general de los bloques, aunque puede omitir detalles sobre la evolución de amplitud, ruido o comportamiento de la carga. | Integra correctamente la entrada diferencial con modo común, el amplificador instrumental, el filtro activo y la carga equivalente al ADC. Registra señales en entrada, salida del IA, salida del filtro y nodo de carga. Explica cómo cambia la señal en cada etapa y cómo cada bloque contribuye al acondicionamiento previo a la adquisición de datos. | ___ / 4 |
+| **Preguntas de análisis** | Responde menos del 60% de las preguntas o presenta respuestas desconectadas de los resultados. Las respuestas son copiadas, incompletas o no evidencian análisis técnico. | Responde parcialmente, pero con imprecisiones conceptuales o poca relación con las mediciones. Puede identificar algunos fenómenos, pero no los justifica adecuadamente con los datos obtenidos. | Responde la mayoría de preguntas correctamente. Relaciona resultados y conceptos principales, aunque algunas explicaciones son breves, poco cuantitativas o no discuten posibles discrepancias. | Presenta respuestas completas, claras y técnicamente justificadas. Usa los resultados de simulación para explicar ganancia, rechazo de modo común, filtrado, ruido de 60 Hz, atenuación y función de cada bloque. Compara valores medidos con valores esperados y explica diferencias razonables. | ___ / 4 |
+| **Comprensión de la teoría** | No demuestra comprensión suficiente de los conceptos centrales. Confunde la función del IA, el CMRR, el filtro o la carga del ADC. No conecta la teoría con el objetivo del laboratorio. | Demuestra comprensión parcial. Reconoce algunos conceptos, pero con errores o explicaciones incompletas. Tiene dificultad para explicar por qué se amplifica la señal útil y se atenúan componentes no deseadas. | Demuestra comprensión de la mayoría de conceptos: amplificación diferencial, rechazo de modo común, filtrado pasa-bajos y acondicionamiento antes del ADC. Puede presentar pequeñas imprecisiones o falta de profundidad en la relación entre bloques. | Demuestra comprensión sólida e integrada de IA, CMRR, filtrado y adquisición de datos. Explica por qué cada etapa es necesaria, qué problema resuelve y cómo contribuye a mejorar la calidad de la señal antes del ADC. Usa correctamente lenguaje técnico y relaciones entre teoría, simulación y resultados. | ___ / 4 |
+| **Presentación y organización** | El informe está incompleto, confuso o desordenado. Faltan evidencias clave como capturas, tablas o respuestas. La presentación dificulta evaluar el trabajo. | El informe contiene los elementos básicos, pero está desorganizado o presenta errores de forma que afectan la claridad. Las tablas, capturas o explicaciones no están bien integradas. | El informe está mayormente ordenado y permite seguir el desarrollo del laboratorio. Puede tener errores menores de redacción, formato o ubicación de evidencias, pero no impiden la evaluación. | El informe está ordenado, claro y completo. Incluye capturas pertinentes, tablas diligenciadas, resultados identificables y explicaciones bien estructuradas. La presentación facilita verificar el procedimiento, los resultados y el análisis. | ___ / 4 |
+
+**Puntaje base:** ____ / 32
+
+## Penalización por entrega tarde
+
+La penalización se aplica después de sumar el puntaje base de la rúbrica.
+
+| Condición de entrega | Penalización |
+|---|---:|
+| Entrega dentro del plazo establecido | 0 puntos |
+| Entrega hasta 24 horas tarde | -4 puntos |
+| Entrega entre 24 y 48 horas tarde | -6 puntos |
+| Entrega con más de 48 horas de retraso | -8 puntos |
+
+## Cálculo del puntaje final
+
+**Puntaje final = puntaje base - penalización por entrega tarde**
+
+**Puntaje final:** ____ / 32
+
+> Nota: si la penalización genera un resultado negativo, el puntaje final mínimo será 0 puntos.

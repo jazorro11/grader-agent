@@ -174,7 +174,7 @@
   <p class="eyebrow">Multimodal AI grading assistant</p>
   <h1>Grader Agent</h1>
   <p class="lede">
-    Portfolio demo for educators: upload a Markdown rubric, then grade <strong>PDF, Python (.py) or Jupyter (.ipynb)</strong> submissions (plain text extracted from the file; PDFs up to {{ pdf_max_pages }} {% if pdf_max_pages == 1 %}page{% else %}pages{% endif %}),
+    Portfolio demo for educators: upload a Markdown rubric, then grade <strong>PDF, Word (.docx), Python (.py) or Jupyter (.ipynb)</strong> submissions (plain text extracted from the file; PDFs up to {{ pdf_max_pages }} {% if pdf_max_pages == 1 %}page{% else %}pages{% endif %}),
     or single <strong>text / audio</strong> answers (audio is transcribed before scoring). Outputs are <strong>suggestions</strong> — teachers remain responsible for final marks and fairness.
   </p>
 </header>
@@ -183,7 +183,7 @@
 <div class="card">
   <h2>1. Rúbrica y entregable del alumno</h2>
   <p style="font-size:0.88rem;color:#6c757d;margin-bottom:1rem;">
-    Cargá la rúbrica (.md) y el entregable del estudiante (PDF, .py o .ipynb). Se evalúa el texto/código extraído según cada criterio de la rúbrica.
+    Cargá la rúbrica (.md) y el entregable del estudiante (PDF, .docx, .py o .ipynb). Se evalúa el texto/código extraído según cada criterio de la rúbrica.
   </p>
 
   <div class="rubric-entregable-grid">
@@ -197,9 +197,9 @@
     </div>
     <div class="zona">
       <h3>Entregable del alumno</h3>
-      <p class="hint">PDF (máx. {{ pdf_max_pages }} {% if pdf_max_pages == 1 %}página{% else %}páginas{% endif %}), archivo Python o notebook Jupyter. Se evalúa el texto o celdas de código extraídas.</p>
+      <p class="hint">PDF (máx. {{ pdf_max_pages }} {% if pdf_max_pages == 1 %}página{% else %}páginas{% endif %}), Word (.docx), archivo Python o notebook Jupyter. Se evalúa el texto o celdas de código extraídas.</p>
       <input type="text" id="nombre-alumno-entregable" placeholder="Nombre del alumno">
-      <input type="file" id="archivo-entregable-multimodal" accept=".pdf,.py,.ipynb,application/pdf">
+      <input type="file" id="archivo-entregable-multimodal" accept=".pdf,.docx,.py,.ipynb,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
       <button type="button" class="btn-success" onclick="calificarEntregable()">Evaluar entregable con la rúbrica</button>
       <span class="spinner" id="spinner-entregable">⏳ Extrayendo y calificando...</span>
     </div>
@@ -215,7 +215,7 @@
     <p style="font-size:0.85rem;color:#6c757d;margin-bottom:0.75rem;line-height:1.4;">
       Elegí la carpeta que contiene las entregas (o una carpeta padre, p. ej. la de la tarea): se detecta en la ruta cada
       <code style="font-size:0.8rem;">NOMBRE_######_assignsubmission_file</code>
-      y dentro debe haber <strong>un solo</strong> entregable admitido: PDF, <code>.py</code> o <code>.ipynb</code> (ej. «tarea.ipynb»). Chrome o Edge recomendados.
+      y dentro debe haber <strong>un solo</strong> entregable admitido: PDF, <code>.docx</code>, <code>.py</code> o <code>.ipynb</code> (ej. «tarea.ipynb»). Chrome o Edge recomendados.
       Si hay más de un archivo admitido en la carpeta del alumno, completá el filtro por texto en el nombre del archivo.
     </p>
     <input type="text" id="filtro-nombre-pdf" placeholder="Contiene en el nombre del archivo (ej. tinyML) — opcional si hay un solo entregable">
@@ -323,16 +323,16 @@
 
   function esExtensionEntregableMultimodal(name) {
     var n = (name || "").toLowerCase();
-    return n.endsWith(".pdf") || n.endsWith(".py") || n.endsWith(".ipynb");
+    return n.endsWith(".pdf") || n.endsWith(".docx") || n.endsWith(".py") || n.endsWith(".ipynb");
   }
 
   async function calificarEntregable() {
     const alumno = document.getElementById("nombre-alumno-entregable").value.trim();
     const archivo = document.getElementById("archivo-entregable-multimodal").files[0];
     if (!alumno) { alert("Escribí el nombre del alumno"); return; }
-    if (!archivo) { alert("Seleccioná un archivo (.pdf, .py o .ipynb)"); return; }
+    if (!archivo) { alert("Seleccioná un archivo (.pdf, .docx, .py o .ipynb)"); return; }
     if (!esExtensionEntregableMultimodal(archivo.name)) {
-      alert("Solo se aceptan archivos .pdf, .py o .ipynb");
+      alert("Solo se aceptan archivos .pdf, .docx, .py o .ipynb");
       return;
     }
 
@@ -430,7 +430,7 @@
           errs.push({
             carpeta: folder,
             msg: entregables.length === 0
-              ? "No hay ningún entregable admitido (.pdf, .py o .ipynb) en la carpeta."
+              ? "No hay ningún entregable admitido (.pdf, .docx, .py o .ipynb) en la carpeta."
               : "Hay varios entregables admitidos: usá el filtro por nombre (ej. solucion)."
           });
           continue;

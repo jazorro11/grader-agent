@@ -56,9 +56,9 @@ def _guardar_resultado(_alumno: str, resultado: dict) -> None:
 
 
 def _suffix_entregable_multimodal(filename: str) -> str | None:
-    """Sufijo temporal válido para PDF, Python o Jupyter; ``None`` si la extensión no está permitida."""
+    """Sufijo temporal válido para PDF, Word, Python o Jupyter; ``None`` si no está permitido."""
     low = (filename or "").lower()
-    for suf in (".pdf", ".py", ".ipynb"):
+    for suf in (".pdf", ".docx", ".py", ".ipynb"):
         if low.endswith(suf):
             return suf
     return None
@@ -200,7 +200,7 @@ def register_routes(app: Flask) -> None:
 
         suf = _suffix_entregable_multimodal(archivo.filename or "")
         if suf is None:
-            return jsonify({"error": "Solo se aceptan archivos .pdf, .py o .ipynb"}), 400
+            return jsonify({"error": "Solo se aceptan archivos .pdf, .docx, .py o .ipynb"}), 400
 
         rubrica = _leer_rubrica_activa()
         if not rubrica:
@@ -210,7 +210,7 @@ def register_routes(app: Flask) -> None:
         os.close(fd)
         try:
             archivo.save(ruta_tmp)
-            if suf == ".pdf":
+            if suf in (".pdf", ".docx"):
                 pipe_req = build_pdf_grading_request(
                     rubric=rubrica,
                     student_name=nombre_alumno,
@@ -254,7 +254,7 @@ def register_routes(app: Flask) -> None:
         archivos = request.form.getlist("archivo_pdf")
 
         if not archivos_subida:
-            return jsonify({"error": "No se recibieron archivos de entrega (.pdf, .py o .ipynb)"}), 400
+            return jsonify({"error": "No se recibieron archivos de entrega (.pdf, .docx, .py o .ipynb)"}), 400
 
         n = len(archivos_subida)
         if len(alumnos) != n:
@@ -339,7 +339,7 @@ def register_routes(app: Flask) -> None:
                     {
                         "alumno": alumno,
                         "carpeta_origen": carpeta,
-                        "error": "Extensión no permitida (solo .pdf, .py o .ipynb).",
+                        "error": "Extensión no permitida (solo .pdf, .docx, .py o .ipynb).",
                     }
                 )
                 continue
@@ -350,7 +350,7 @@ def register_routes(app: Flask) -> None:
             try:
                 sub.save(ruta_tmp)
                 try:
-                    if suf == ".pdf":
+                    if suf in (".pdf", ".docx"):
                         pipe_req = build_pdf_grading_request(
                             rubric=rubrica,
                             student_name=alumno,
