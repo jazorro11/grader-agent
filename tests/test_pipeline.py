@@ -14,7 +14,7 @@ from grader_agent.models import (
     GradingRequest,
     GradingResult,
 )
-from grader_agent.pipeline import GradingPipeline
+from grader_agent.pipeline import GradingPipeline, _submission_body_heading
 
 
 def _minimal_rubric() -> str:
@@ -493,3 +493,10 @@ def test_internal_non_recoverable_error_returns_error_result_shape(
     assert out.error_type == ERROR_TYPE_INTERNAL
     assert out.message
     grading.grade_text_item.assert_called_once()
+
+
+def test_submission_body_heading_pdf_vs_docx() -> None:
+    assert _submission_body_heading(DeliveryType.PDF_DELIVERABLE, r"C:\tmp\informe.docx") == (
+        "TEXTO PLANO DEL ENTREGABLE (DOCX)"
+    )
+    assert _submission_body_heading(DeliveryType.PDF_DELIVERABLE, "x.PDF") == "TEXTO PLANO DEL ENTREGABLE (PDF)"

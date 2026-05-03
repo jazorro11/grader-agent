@@ -193,7 +193,10 @@ def build_pdf_grading_request(
     student_name: str,
     pdf_path: str,
 ) -> GradingRequest:
-    """Build a ``PDF_DELIVERABLE`` request whose ``content`` is the PDF path string."""
+    """
+    Build a ``PDF_DELIVERABLE`` request whose ``content`` is the absolute or relative filesystem
+    path to the deliverable: a ``.pdf`` or a Word ``.docx`` (handled in ``PDFExtractionService``).
+    """
     return GradingRequest(
         delivery_type=DeliveryType.PDF_DELIVERABLE,
         content=pdf_path.strip(),

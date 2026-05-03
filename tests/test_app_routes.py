@@ -230,7 +230,41 @@ def test_calificar_entregable_extension_invalida_devuelve_400(app_client):
         content_type="multipart/form-data",
     )
     assert rv.status_code == 400
-    assert ".pdf" in rv.get_json()["error"].lower() or "ipynb" in rv.get_json()["error"].lower()
+    err = rv.get_json()["error"].lower()
+    assert ".pdf" in err or "ipynb" in err or "docx" in err
+
+
+@patch.object(routes_module, "run_grading_request")
+def test_calificar_entregable_docx_usa_pdf_deliverable(mock_run, app_client):
+    write_rubrica_parcial(app_client["rubrics"])
+    mock_run.return_value = GradingResult(
+        scores_by_criterion={},
+        total_score=10.0,
+        total_max_score=10.0,
+        feedback="",
+        student_name="Carlos",
+        item_label=None,
+        transcription=None,
+        deliverable_kind="pdf_deliverable",
+        archivo_pdf=None,
+        status="success",
+        rejection=None,
+    )
+    rv = app_client["client"].post(
+        "/calificar-entregable",
+        data={
+            "alumno": "Carlos",
+            "entregable": (BytesIO(b"PK\x03\x04 fake docx body"), "informe.docx"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert rv.status_code == 200
+    mock_run.assert_called_once()
+    req = mock_run.call_args[0][0]
+    assert isinstance(req, GradingRequest)
+    assert req.delivery_type == DeliveryType.PDF_DELIVERABLE
+    assert req.student_name == "Carlos"
+    assert req.content.endswith(".docx")
 
 
 @patch.object(routes_module, "run_grading_request")
