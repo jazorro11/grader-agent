@@ -28,22 +28,54 @@ It is **not** a gradebook replacement, an official LMS, or a guarantee of fair o
 
 ## Main workflows
 
-Single-request flow: **request → plain text → student-content policy → rubric → (text/audio only: item match) → LLM grade → validate grading JSON → feedback**. Batch folder grading in the UI runs the same steps per file, then exports CSV (not shown).
+### Flujo de información (resumen)
+
+1. **Preparación de la rúbrica** — El docente sube un `.md` por HTTP (`POST /cargar-rubrica`). La app guarda **`rubrica_activa.md`** y, si la investigación está habilitada, ejecuta **`RubricResearchService`**: OpenRouter (modelo con **`:online`**) produce una guía con citas filtradas; el resultado se guarda en **`data/research/`** como par **`{hash}.md` + `{hash}.json`** (SHA-256 del cuerpo normalizado de la rúbrica). Las calificaciones posteriores **solo leen** esa caché cuando el hash coincide (cambios cosméticos de espacios suelen conservar el mismo hash).
+2. **Cada calificación** — Las rutas construyen un **`GradingRequest`** (texto JSON, audio temporal + ítem, PDF, o `.py`/`.ipynb`) con la **rúbrica activa** en memoria y llaman a **`run_grading_request` → `GradingPipeline.run`**. El pipeline obtiene texto plano (paso 1), aplica política sobre el texto del alumno (paso 2), valida la rúbrica (paso 3), resuelve **ítem ↔ rúbrica** solo en texto/audio, **resuelve la guía de investigación** (caché o construcción bajo demanda; si falla, sigue sin guía), llama a **OpenRouter** para el JSON de puntajes (paso 4), valida el JSON (paso 5), y genera la retro en **OpenRouter** (paso 6). **Whisper (OpenAI)** solo interviene en el paso 1 cuando la modalidad es audio.
+3. **Salida** — La respuesta HTTP adapta **`GradingResult`** o **`ErrorResult`** ([`app/grading_http.py`](app/grading_http.py)). Opcionalmente se **anexa** un resumen al log **`resultados.json`**. El flujo por carpetas (entregables) repite el mismo pipeline por archivo y luego exporta CSV.
+
+El diagrama siguiente muestra ese orden de datos; no incluye ramas de error.
 
 ```mermaid
-flowchart TD
-  IN([Rubric + submission]) --> S0[0 · Request validation]
-  S0 --> S1[1 · Plain text<br/>JSON parse · Whisper · PDF or code extract]
-  S1 --> S2[2 · Student text<br/>regex then optional LLM]
-  S2 -->|policy rejected| RJ[Rejected · no grading call]
-  S2 -->|clean| S3[3 · Rubric Markdown check]
-  S3 --> MOD{Modality}
-  MOD -->|text or audio| MAP[Map question to rubric item]
-  MOD -->|PDF or code file| S4[4 · LLM grading JSON]
-  MAP --> S4
-  S4 --> S5[5 · Output validation<br/>schema · criteria · clamps]
-  S5 --> S6[6 · Feedback text]
-  S6 --> OK[Scores + feedback]
+flowchart TB
+  subgraph Prep["1 · Preparación de rúbrica (HTTP, entre sesiones o al cambiar rúbrica)"]
+    UP["POST /cargar-rubrica<br/>Markdown rúbrica"] --> DISK["Escribir rubrica_activa.md<br/>GRADER_DATA_DIR/rubrics/"]
+    DISK --> RSVC["RubricResearchService<br/>OpenRouter + búsqueda :online"]
+    RSVC --> CACHE["Caché guía en data/research<br/>par de archivos hex.md + hex.json"]
+  end
+
+  subgraph Req["2 · Petición de calificación (HTTP)"]
+    CAL["POST /calificar-texto · audio · entregable<br/>multipart o JSON"] --> BUILD["build_*_request → GradingRequest<br/>rúbrica activa + contenido entrega"]
+    BUILD --> RUN["run_grading_request<br/>GradingPipeline.run"]
+  end
+
+  subgraph Pipe["3 · Pipeline — mismas etapas para todas las modalidades"]
+    S0["0 · Validar solicitud<br/>tipo entrega · alumno · rúbrica · contenido"]
+    S0 --> S1["1 · Texto plano del entregable<br/>parse JSON texto · Whisper OpenAI audio<br/>PyMuPDF PDF · CodeNotebook py/ipynb"]
+    S1 --> S2["2 · Política contenido alumno<br/>regex capa A · LLM capa B OpenRouter opcional"]
+    S2 -->|rechazo| RJ["GradingResult status=rejected<br/>sin llamada al calificador"]
+    S2 -->|apto| S3["3 · Validar estructura rúbrica MD"]
+    S3 --> MOD{"¿Texto o audio?"}
+    MOD -->|sí| MAP["Resolver ítem pregunta ↔ escala en rúbrica"]
+    MOD -->|PDF o código| SKIP["Sin ítem único<br/>todos los criterios en prompts"]
+    MAP --> RG
+    SKIP --> RG
+    RG["Resolver guía investigación<br/>GradingPipeline · caché o get_or_create"]
+    RG --> S4["4 · Calificación LLM<br/>OpenRouter JSON scores_by_criterion<br/>rúbrica + texto + guía opcional"]
+    S4 --> S5["5 · Validar JSON de calificación<br/>OutputValidationService · sin LLM"]
+    S5 --> S6["6 · Retroalimentación alumno<br/>OpenRouter desde JSON validado paso 5"]
+    S6 --> OK["GradingResult → JSON UI"]
+  end
+
+  DISK -.->|rúbrica leída en cada request| BUILD
+  CACHE -.->|misma rúbrica · hash| RG
+
+  RUN --> S0
+
+  subgraph Out["Salida · HTTP y log"]
+    OK --> HTTP["Respuesta HTTP<br/>grading_http adapters"]
+    HTTP --> LOG["Opcional append<br/>resultados.json"]
+  end
 ```
 
 Failures (`ErrorResult`, bad audio/PDF, invalid item, bad model JSON, feedback API error) are omitted; see [Validation stages (complete)](#validation-stages-complete) and the note below that table.
@@ -86,7 +118,7 @@ Every graded request follows the same gates (see [`GradingPipeline.run`](src/gra
 | Prompts | [`src/grader_agent/prompts/`](src/grader_agent/prompts/) | Markdown system prompts (overridable via `GRADER_AGENT_PROMPTS_DIR`) |
 | Samples | [`samples/`](samples/) | Example rubrics only (not loaded automatically) |
 
-Configuration and paths are centralized in [`src/grader_agent/settings.py`](src/grader_agent/settings.py). Shared chat calls with JSON responses live in [`src/grader_agent/llm/client_calls.py`](src/grader_agent/llm/client_calls.py). The Flask app wires a single [`GradingPipeline`](src/grader_agent/pipeline.py) via [`app/grading_pipeline_factory.py`](app/grading_pipeline_factory.py).
+Configuration and paths are centralized in [`src/grader_agent/settings.py`](src/grader_agent/settings.py). Shared chat calls with JSON responses live in [`src/grader_agent/llm/client_calls.py`](src/grader_agent/llm/client_calls.py). The Flask app wires a single [`GradingPipeline`](src/grader_agent/pipeline.py) via [`app/grading_pipeline_factory.py`](app/grading_pipeline_factory.py). For an end-to-end **data-flow** picture (rubric upload, cache, pipeline, external APIs), see the Mermaid diagram under [Main workflows](#main-workflows).
 
 ---
 
@@ -123,8 +155,8 @@ The orchestrator runs **steps 0–6** in order for every request (see [`GradingP
 When a rubric `.md` is uploaded via `POST /cargar-rubrica`, the
 [`RubricResearchService`](src/grader_agent/services/research.py) runs
 synchronously to produce a "guía de investigación" cached by the SHA-256
-of the normalized rubric body under `data/research/<hash>.md` (with a
-`.json` sidecar holding the structured payload). Subsequent grading
+of the normalized rubric body as a pair of files in `data/research/`
+(`<sha256>.md` guide plus `<sha256>.json` payload). Subsequent grading
 requests for the same rubric reuse the cached guide; cosmetic edits
 (whitespace, CRLF/LF) keep the same hash.
 
