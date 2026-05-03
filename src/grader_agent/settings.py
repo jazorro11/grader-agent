@@ -11,9 +11,48 @@ _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 _DEFAULT_LLM_MODEL = "gpt-4o"
 _DEFAULT_VALIDATION_MODEL = "gpt-4o-mini"
+_DEFAULT_RESEARCH_MODEL = "openai/gpt-4o:online"
 _DEFAULT_GRADING_MAX_TOKENS = 8192
 _DEFAULT_FEEDBACK_MAX_TOKENS = 4096
 _DEFAULT_VALIDATION_MAX_TOKENS = 2048
+_DEFAULT_RESEARCH_MAX_TOKENS = 4096
+
+_DEFAULT_RESEARCH_DOMAIN_ALLOWLIST: tuple[str, ...] = (
+    ".edu",
+    ".gov",
+    ".int",
+    ".mil",
+    "ieee.org",
+    "acm.org",
+    "springer.com",
+    "link.springer.com",
+    "sciencedirect.com",
+    "nature.com",
+    "science.org",
+    "arxiv.org",
+    "ssrn.com",
+    "ncbi.nlm.nih.gov",
+    "pubmed.ncbi.nlm.nih.gov",
+    "scholar.google.com",
+    "iso.org",
+    "iec.ch",
+    "ietf.org",
+    "rfc-editor.org",
+    "w3.org",
+    "nist.gov",
+    "ti.com",
+    "analog.com",
+    "microchip.com",
+    "intel.com",
+    "infineon.com",
+    "st.com",
+    "nxp.com",
+    "docs.python.org",
+    "python.org",
+    "numpy.org",
+    "scipy.org",
+    "matplotlib.org",
+)
 
 _TRUTHY = frozenset({"1", "true", "yes"})
 
@@ -47,6 +86,7 @@ class GraderPaths:
     rubrics_dir: Path
     active_rubric_file: Path
     results_json: Path
+    research_dir: Path
 
     @classmethod
     def from_env(cls) -> GraderPaths:
@@ -58,12 +98,14 @@ class GraderPaths:
             rubrics_dir=rubrics,
             active_rubric_file=rubrics / "rubrica_activa.md",
             results_json=base / "resultados.json",
+            research_dir=base / "research",
         )
 
     def ensure_directories(self) -> None:
-        """Create ``data_dir`` and ``rubrics_dir`` if they do not exist."""
+        """Create ``data_dir``, ``rubrics_dir`` and ``research_dir`` if missing."""
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.rubrics_dir.mkdir(parents=True, exist_ok=True)
+        self.research_dir.mkdir(parents=True, exist_ok=True)
 
 
 def llm_model() -> str:
@@ -134,6 +176,47 @@ def feedback_max_tokens() -> int:
 def validation_max_tokens() -> int:
     """Max completion tokens for validation calls (env ``VALIDATION_MAX_TOKENS``)."""
     return _int_env("VALIDATION_MAX_TOKENS", _DEFAULT_VALIDATION_MAX_TOKENS)
+
+
+def research_model() -> str:
+    """OpenRouter chat model id for the rubric researcher (default ``openai/gpt-4o:online``).
+
+    The ``:online`` suffix on OpenRouter automatically appends web search
+    results. Override via ``RESEARCH_LLM_MODEL`` to use a different
+    online-capable model.
+    """
+    return (
+        os.environ.get("RESEARCH_LLM_MODEL", _DEFAULT_RESEARCH_MODEL).strip()
+        or _DEFAULT_RESEARCH_MODEL
+    )
+
+
+def research_max_tokens() -> int:
+    """Max completion tokens for the rubric researcher call."""
+    return _int_env("RESEARCH_MAX_TOKENS", _DEFAULT_RESEARCH_MAX_TOKENS)
+
+
+def skip_research() -> bool:
+    """True when ``SKIP_RESEARCH`` is truthy (disables the researcher agent)."""
+    raw = os.environ.get("SKIP_RESEARCH", "").strip().lower()
+    return raw in _TRUTHY
+
+
+def research_domain_allowlist() -> tuple[str, ...]:
+    """
+    Allowlist of domain suffixes for citations from the researcher.
+
+    Reads ``RESEARCH_DOMAIN_ALLOWLIST`` (comma-separated). Each entry is
+    matched as a case-insensitive suffix of the citation hostname; entries
+    starting with a dot match any subdomain (``.edu`` matches ``mit.edu``).
+    Empty / unset value falls back to a curated default list of academic and
+    official-vendor domains.
+    """
+    raw = os.environ.get("RESEARCH_DOMAIN_ALLOWLIST", "").strip()
+    if not raw:
+        return _DEFAULT_RESEARCH_DOMAIN_ALLOWLIST
+    parts = tuple(p.strip().lower() for p in raw.split(",") if p.strip())
+    return parts or _DEFAULT_RESEARCH_DOMAIN_ALLOWLIST
 
 
 def log_file_path() -> Path | None:

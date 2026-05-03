@@ -170,6 +170,157 @@ def test_cargar_rubrica_camino_feliz(app_client):
     )
     assert rv.status_code == 200
     assert (rub / "rubrica_activa.md").read_text(encoding="utf-8") == "# Mi rubrica\n"
+    body = rv.get_json()
+    assert body["ok"] is True
+    assert body["research"]["status"] == "skipped"
+
+
+def test_cargar_rubrica_dispara_investigacion_y_devuelve_resumen(app_client, monkeypatch):
+    monkeypatch.setenv("SKIP_RESEARCH", "0")
+    fake_payload = {
+        "temas": [
+            {
+                "tema": "Tema X",
+                "hechos": ["Hecho verificable."],
+                "errores_frecuentes": [],
+                "citas": [
+                    {
+                        "url": "https://www.nist.gov/something",
+                        "titulo": "NIST",
+                        "tipo": "oficial",
+                    }
+                ],
+            }
+        ],
+        "advertencias": [],
+    }
+    with patch(
+        "grader_agent.services.research.chat_completion_json_content",
+        return_value=json.dumps(fake_payload),
+    ) as mock_call:
+        rv = app_client["client"].post(
+            "/cargar-rubrica",
+            data={"rubrica": (BytesIO("# Rúbrica\n40% IA\n".encode("utf-8")), "r.md")},
+            content_type="multipart/form-data",
+        )
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body["research"]["status"] == "ready"
+    assert body["research"]["n_temas"] == 1
+    assert body["research"]["n_citas"] == 1
+    assert body["research"]["hash"]
+    mock_call.assert_called_once()
+
+
+def test_cargar_rubrica_research_falla_no_bloquea_carga(app_client, monkeypatch):
+    monkeypatch.setenv("SKIP_RESEARCH", "0")
+    with patch(
+        "grader_agent.services.research.chat_completion_json_content",
+        side_effect=RuntimeError("network down"),
+    ):
+        rv = app_client["client"].post(
+            "/cargar-rubrica",
+            data={"rubrica": (BytesIO(b"# Rubrica\n40%\n"), "r.md")},
+            content_type="multipart/form-data",
+        )
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body["research"]["status"] == "failed"
+    assert "error" in body["research"]
+
+
+def test_investigar_rubrica_sin_rubrica_devuelve_400(app_client):
+    rv = app_client["client"].post("/investigar-rubrica")
+    assert rv.status_code == 400
+
+
+def test_investigar_rubrica_force_refresh(app_client, monkeypatch):
+    monkeypatch.setenv("SKIP_RESEARCH", "0")
+    write_rubrica_parcial(app_client["rubrics"], "# Rúbrica\n50%\n")
+    fake_payload = {
+        "temas": [
+            {
+                "tema": "T",
+                "hechos": ["h"],
+                "errores_frecuentes": [],
+                "citas": [
+                    {"url": "https://ieee.org/x", "titulo": "IEEE", "tipo": "academica"}
+                ],
+            }
+        ],
+        "advertencias": [],
+    }
+    with patch(
+        "grader_agent.services.research.chat_completion_json_content",
+        return_value=json.dumps(fake_payload),
+    ) as mock_call:
+        rv = app_client["client"].post("/investigar-rubrica")
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body["ok"] is True
+    assert body["research"]["status"] == "ready"
+    assert mock_call.called
+
+
+def test_obtener_investigacion_rubrica_sin_cache_devuelve_404(app_client, monkeypatch):
+    monkeypatch.setenv("SKIP_RESEARCH", "0")
+    write_rubrica_parcial(app_client["rubrics"], "# Rúbrica\n50%\n")
+    rv = app_client["client"].get("/investigacion-rubrica")
+    assert rv.status_code == 404
+
+
+def test_obtener_investigacion_rubrica_skip_research_devuelve_skipped_sin_404(app_client):
+    """Con SKIP_RESEARCH=1 (default en conftest) el GET no exige caché en disco."""
+    write_rubrica_parcial(app_client["rubrics"], "# Rúbrica\n50%\n")
+    rv = app_client["client"].get("/investigacion-rubrica")
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body["status"] == "skipped"
+    assert body["guide"] == ""
+    assert body["payload"] is None
+
+
+def test_investigar_rubrica_falla_red_devuelve_502(app_client, monkeypatch):
+    monkeypatch.setenv("SKIP_RESEARCH", "0")
+    write_rubrica_parcial(app_client["rubrics"], "# Rúbrica\n50%\n")
+    with patch(
+        "grader_agent.services.research.chat_completion_json_content",
+        side_effect=RuntimeError("network down"),
+    ):
+        rv = app_client["client"].post("/investigar-rubrica")
+    assert rv.status_code == 502
+    body = rv.get_json()
+    assert body["ok"] is False
+    assert body["research"]["status"] == "failed"
+
+
+def test_obtener_investigacion_rubrica_devuelve_guia_cacheada(app_client, monkeypatch):
+    monkeypatch.setenv("SKIP_RESEARCH", "0")
+    write_rubrica_parcial(app_client["rubrics"], "# Rúbrica\n50%\n")
+    fake_payload = {
+        "temas": [
+            {
+                "tema": "T",
+                "hechos": ["h"],
+                "errores_frecuentes": [],
+                "citas": [
+                    {"url": "https://ieee.org/x", "titulo": "IEEE", "tipo": "academica"}
+                ],
+            }
+        ],
+        "advertencias": [],
+    }
+    with patch(
+        "grader_agent.services.research.chat_completion_json_content",
+        return_value=json.dumps(fake_payload),
+    ):
+        app_client["client"].post("/investigar-rubrica")
+    rv = app_client["client"].get("/investigacion-rubrica")
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body["status"] == "ready"
+    assert "GUÍA" in body["guide"] or "Guía" in body["guide"]
+    assert body["payload"]["temas"][0]["tema"] == "T"
 
 
 def test_cargar_rubrica_no_utf8_devuelve_400(app_client):

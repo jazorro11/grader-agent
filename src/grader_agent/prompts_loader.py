@@ -88,3 +88,8 @@ def system_prompt_texto_retro_item() -> str:
 def system_prompt_validacion_capa_b() -> str:
     """System prompt para la capa B de validación de contenido (JSON de veredicto)."""
     return _read_relative("validacion_capa_b.md")
+
+
+def system_prompt_investigador_rubrica() -> str:
+    """System prompt for the rubric researcher agent (citation-bound JSON output)."""
+    return _read_relative("investigador_rubrica.md")

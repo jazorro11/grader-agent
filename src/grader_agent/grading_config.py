@@ -11,6 +11,7 @@ _DEFAULT_MAX_COMPLETION_PUNTAJE = 256
 _DEFAULT_MAX_COMPLETION_LISTAR = 8192
 _DEFAULT_MAX_COMPLETION_RETRO = 4096
 _DEFAULT_MAX_COMPLETION_GRADING_JSON = 1024
+_DEFAULT_MAX_COMPLETION_RESEARCH = 4096
 _DEFAULT_PDF_MAX_PAGES = 4
 _DEFAULT_CODE_MAX_BYTES = 524_288
 _DEFAULT_CODE_MAX_CHARS = 400_000
@@ -43,7 +44,15 @@ def code_max_chars() -> int:
     return _int_env("GRADER_CODE_MAX_CHARS", _DEFAULT_CODE_MAX_CHARS, minimum=4096)
 
 
-CompletionKind = Literal["escala", "puntaje", "listar", "retro", "validation", "grading_json"]
+CompletionKind = Literal[
+    "escala",
+    "puntaje",
+    "listar",
+    "retro",
+    "validation",
+    "grading_json",
+    "research",
+]
 
 
 def max_completion_tokens_escala() -> int:
@@ -78,6 +87,16 @@ def max_completion_tokens_validation() -> int:
     return validation_max_tokens()
 
 
+def max_completion_tokens_research() -> int:
+    """Tope de salida para la guía de investigación de la rúbrica."""
+    from grader_agent.settings import research_max_tokens
+
+    env_override = _int_env("GRADER_MAX_COMPLETION_RESEARCH", 0, minimum=0)
+    if env_override:
+        return env_override
+    return research_max_tokens()
+
+
 def chat_completion_limit_kwargs(*, kind: CompletionKind) -> dict[str, int]:
     """Argumentos para client.chat.completions.create (max_completion_tokens)."""
     mapping: dict[str, int] = {
@@ -87,6 +106,7 @@ def chat_completion_limit_kwargs(*, kind: CompletionKind) -> dict[str, int]:
         "retro": max_completion_tokens_retro(),
         "validation": max_completion_tokens_validation(),
         "grading_json": max_completion_tokens_grading_json(),
+        "research": max_completion_tokens_research(),
     }
     if kind not in mapping:
         raise ValueError(f"kind inválido: {kind!r}")

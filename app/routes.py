@@ -28,13 +28,75 @@ from grader_agent.grading_config import pdf_max_pages
 from grader_agent.grading.pdf import metadatos_criterios_desde_rubrica
 from grader_agent.moodle_paths import parse_carpeta_moodle
 from grader_agent.models import ErrorResult, GradingResult
-from grader_agent.settings import GraderPaths
+from grader_agent.services.research import RubricResearchService
+from grader_agent.services.research_cache import read_cached, rubric_hash
+from grader_agent.settings import GraderPaths, skip_research
 
 _logger = logging.getLogger(__name__)
 
 
 def _paths() -> GraderPaths:
     return current_app.config["GRADER_PATHS"]
+
+
+def _research_service() -> RubricResearchService | None:
+    pipeline = current_app.config.get("GRADING_PIPELINE")
+    return getattr(pipeline, "research_service", None) if pipeline is not None else None
+
+
+def _research_summary(
+    rubric_md: str,
+    *,
+    force_refresh: bool = False,
+) -> dict:
+    """Run (or look up) the research guide and return a JSON-friendly summary."""
+    if skip_research():
+        return {"hash": "", "status": "skipped", "n_temas": 0, "n_citas": 0}
+
+    service = _research_service()
+    if service is None:
+        return {
+            "hash": "",
+            "status": "skipped",
+            "n_temas": 0,
+            "n_citas": 0,
+            "error": "El agente investigador no está configurado.",
+        }
+
+    paths = _paths()
+    hash_hex = rubric_hash(rubric_md)
+    was_cached = read_cached(paths, hash_hex) is not None and not force_refresh
+
+    try:
+        cached = service.get_or_create(rubric_md, force_refresh=force_refresh)
+    except Exception as exc:
+        _logger.exception("research run failed unexpectedly")
+        return {
+            "hash": hash_hex,
+            "status": "failed",
+            "n_temas": 0,
+            "n_citas": 0,
+            "error": str(exc),
+        }
+
+    if isinstance(cached, ErrorResult):
+        return {
+            "hash": hash_hex,
+            "status": "failed",
+            "n_temas": 0,
+            "n_citas": 0,
+            "error": cached.message,
+        }
+
+    payload = cached.payload
+    n_temas = len(payload.get("temas") or [])
+    n_citas = sum(len(t.get("citas") or []) for t in payload.get("temas") or [])
+    return {
+        "hash": cached.rubric_hash,
+        "status": "cached" if was_cached else "ready",
+        "n_temas": n_temas,
+        "n_citas": n_citas,
+    }
 
 
 def _leer_rubrica_activa() -> str:
@@ -188,7 +250,45 @@ def register_routes(app: Flask) -> None:
         path = _paths().active_rubric_file
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(contenido, encoding="utf-8")
-        return jsonify({"ok": True, "mensaje": "Rúbrica de parcial cargada"})
+        research_info = _research_summary(contenido)
+        return jsonify(
+            {
+                "ok": True,
+                "mensaje": "Rúbrica de parcial cargada",
+                "research": research_info,
+            }
+        )
+
+    @app.route("/investigar-rubrica", methods=["POST"])
+    def investigar_rubrica():
+        rubrica = _leer_rubrica_activa()
+        if not rubrica:
+            return jsonify({"error": "Primero cargá una rúbrica"}), 400
+        research_info = _research_summary(rubrica, force_refresh=True)
+        if research_info.get("status") == "failed":
+            return jsonify({"ok": False, "research": research_info}), 502
+        return jsonify({"ok": True, "research": research_info})
+
+    @app.route("/investigacion-rubrica", methods=["GET"])
+    def obtener_investigacion_rubrica():
+        rubrica = _leer_rubrica_activa()
+        if not rubrica:
+            return jsonify({"error": "Primero cargá una rúbrica"}), 400
+        if skip_research():
+            return jsonify({"status": "skipped", "guide": "", "payload": None})
+        paths = _paths()
+        hash_hex = rubric_hash(rubrica)
+        cached = read_cached(paths, hash_hex)
+        if cached is None:
+            return jsonify({"status": "missing", "guide": "", "payload": None}), 404
+        return jsonify(
+            {
+                "status": "ready",
+                "hash": cached.rubric_hash,
+                "guide": cached.guide_markdown,
+                "payload": cached.payload,
+            }
+        )
 
     @app.route("/calificar-entregable", methods=["POST"])
     def calificar_entregable():

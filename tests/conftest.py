@@ -3,6 +3,10 @@ import os
 
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-fake-for-pytest")
 os.environ.setdefault("OPENROUTER_API_KEY", "sk-test-fake-for-pytest-openrouter")
+# Disable the researcher agent by default so route/pipeline tests don't make
+# live HTTP calls. Tests covering the researcher itself opt back in via
+# monkeypatch.setenv("SKIP_RESEARCH", "0").
+os.environ.setdefault("SKIP_RESEARCH", "1")
 
 import pytest
 
