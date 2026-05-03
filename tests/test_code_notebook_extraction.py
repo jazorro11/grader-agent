@@ -127,7 +127,7 @@ def test_supera_max_chars(monkeypatch, tmp_path) -> None:
     assert "caracteres" in out.message.lower()
 
 
-def test_supera_max_bytes(monkeypatch, tmp_path) -> None:
+def test_supera_max_bytes_limite_minimo_grading_config(monkeypatch, tmp_path) -> None:
     # Límite efectivo mínimo vía grading_config es 1024 bytes
     monkeypatch.setenv("GRADER_CODE_MAX_BYTES", "1024")
     p = tmp_path / "huge.py"

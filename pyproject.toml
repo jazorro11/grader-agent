@@ -33,7 +33,7 @@ grader_agent = ["prompts/*.md"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 markers = [
-  "integration: pruebas opcionales que llaman APIs externas (LLM, etc.)",
+  "integration: requires real OPENAI_API_KEY and network",
 ]
 
 [tool.black]

@@ -11,12 +11,12 @@ from dotenv import load_dotenv
 # OpenRouter client before create_app() runs; load repo .env first.
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-from flask import Flask
+from flask import Flask  # noqa: E402
 
-from app.grading_pipeline_factory import create_grading_pipeline
-from app.routes import register_routes
-from grader_agent.http_logging import configure_logging, register_http_logging
-from grader_agent.settings import GraderPaths, validate_llm_api_keys_for_runtime
+from app.grading_pipeline_factory import create_grading_pipeline  # noqa: E402
+from app.routes import register_routes  # noqa: E402
+from grader_agent.http_logging import configure_logging, register_http_logging  # noqa: E402
+from grader_agent.settings import GraderPaths, validate_llm_api_keys_for_runtime  # noqa: E402
 
 
 def create_app(*, testing: bool | None = None) -> Flask:
