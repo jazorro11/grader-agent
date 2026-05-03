@@ -99,6 +99,97 @@
     }
     .ok  { background: #d5f5e3; color: #1e8449; }
     .err { background: #fadbd8; color: #922b21; }
+
+    .research-panel {
+      margin-top: 0.75rem;
+      padding: 0.75rem 0.85rem;
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .research-panel h4 {
+      font-size: 0.85rem;
+      color: #2c3e50;
+      margin: 0;
+    }
+    .research-status-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .research-chip {
+      font-size: 0.78rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-weight: 600;
+    }
+    .research-chip-ready    { background: #d5f5e3; color: #1e8449; }
+    .research-chip-cached   { background: #d6eaf8; color: #1f618d; }
+    .research-chip-failed   { background: #fadbd8; color: #922b21; }
+    .research-chip-skipped  { background: #ecf0f1; color: #5d6d7e; }
+    .research-chip-running  { background: #fdebd0; color: #af601a; }
+    .research-counts {
+      font-size: 0.8rem;
+      color: #34495e;
+    }
+    .research-policy {
+      font-size: 0.72rem;
+      color: #7f8c8d;
+      font-style: italic;
+    }
+    .research-error {
+      font-size: 0.78rem;
+      color: #922b21;
+      background: #fdecea;
+      padding: 0.4rem 0.6rem;
+      border-radius: 6px;
+    }
+    .research-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .research-actions button {
+      padding: 0.4rem 0.85rem;
+      font-size: 0.82rem;
+    }
+    .research-details {
+      border: 1px dashed #bdc3c7;
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      background: #ffffff;
+    }
+    .research-details summary {
+      cursor: pointer;
+      font-size: 0.82rem;
+      color: #34495e;
+      font-weight: 600;
+    }
+    .research-details[open] summary { margin-bottom: 0.5rem; }
+    .research-guide-body {
+      max-height: 45vh;
+      overflow: auto;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: #2c3e50;
+      background: #fafbfc;
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .research-neutral {
+      font-size: 0.78rem;
+      color: #95a5a6;
+    }
     .audio-controles { display: flex; gap: 0.8rem; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; }
     #estado-grabacion { font-size: 0.85rem; color: #7f8c8d; }
     #estado-grabacion.grabando { color: #e74c3c; font-weight: 600; }
@@ -194,6 +285,26 @@
       <input type="file" id="archivo-rubrica" accept=".md" aria-describedby="hint-rubrica">
       <button type="button" class="btn-primary" onclick="cargarRubrica()">Cargar rúbrica</button>
       <div id="estado-rubrica" class="err">Sin rúbrica cargada</div>
+
+      <section class="research-panel" aria-labelledby="research-title" id="research-panel">
+        <h4 id="research-title">Investigación de la rúbrica</h4>
+        <div class="research-status-row" aria-live="polite">
+          <span id="research-chip" class="research-chip research-chip-skipped">Sin investigación</span>
+          <span id="research-counts" class="research-counts" hidden></span>
+        </div>
+        <p id="research-neutral" class="research-neutral">Cargá una rúbrica para habilitar la investigación automática.</p>
+        <p id="research-error" class="research-error" hidden></p>
+        <p class="research-policy">Las citas se limitan a fuentes oficiales o académicas.</p>
+        <div class="research-actions">
+          <button type="button" class="btn-secondary" id="btn-reintentar-investigacion" onclick="reintentarInvestigacion()" disabled>
+            Reintentar investigación
+          </button>
+        </div>
+        <details class="research-details" id="research-details">
+          <summary id="research-summary">Ver guía de investigación</summary>
+          <div id="research-guide-body" class="research-guide-body">Cargá una rúbrica para generar la guía.</div>
+        </details>
+      </section>
     </div>
     <div class="zona">
       <h3>Entregable del alumno</h3>
@@ -315,11 +426,159 @@
     if (data.ok) {
       estado.textContent = "✅ " + archivo.name + " cargada";
       estado.className = "ok";
+      pintarResearch(data.research || null, { invalidarGuia: true });
     } else {
       estado.textContent = "❌ " + (data.error || "Error");
       estado.className = "err";
     }
   }
+
+  let _researchHash = "";
+  let _researchGuiaCargada = false;
+
+  function _setHidden(el, hidden) {
+    if (!el) return;
+    if (hidden) { el.setAttribute("hidden", "hidden"); }
+    else { el.removeAttribute("hidden"); }
+  }
+
+  function pintarResearch(research, opts) {
+    opts = opts || {};
+    const chip = document.getElementById("research-chip");
+    const counts = document.getElementById("research-counts");
+    const neutral = document.getElementById("research-neutral");
+    const errorEl = document.getElementById("research-error");
+    const btn = document.getElementById("btn-reintentar-investigacion");
+    const guideBody = document.getElementById("research-guide-body");
+
+    chip.classList.remove(
+      "research-chip-ready",
+      "research-chip-cached",
+      "research-chip-failed",
+      "research-chip-skipped",
+      "research-chip-running"
+    );
+
+    if (!research) {
+      chip.classList.add("research-chip-skipped");
+      chip.textContent = "Sin investigación";
+      counts.textContent = "";
+      _setHidden(counts, true);
+      neutral.textContent = "Cargá una rúbrica para habilitar la investigación automática.";
+      _setHidden(neutral, false);
+      _setHidden(errorEl, true);
+      btn.disabled = true;
+      _researchHash = "";
+      _researchGuiaCargada = false;
+      guideBody.textContent = "Cargá una rúbrica para generar la guía.";
+      return;
+    }
+
+    if (opts.invalidarGuia && research.hash !== _researchHash) {
+      _researchGuiaCargada = false;
+      guideBody.textContent = "Pulsá «Ver guía de investigación» para cargarla.";
+      const det = document.getElementById("research-details");
+      if (det && det.open) det.open = false;
+    }
+    _researchHash = research.hash || "";
+
+    const status = research.status || "skipped";
+    if (status === "ready") {
+      chip.classList.add("research-chip-ready");
+      chip.textContent = "Lista";
+    } else if (status === "cached") {
+      chip.classList.add("research-chip-cached");
+      chip.textContent = "Recuperada de caché";
+    } else if (status === "failed") {
+      chip.classList.add("research-chip-failed");
+      chip.textContent = "Falló";
+    } else {
+      chip.classList.add("research-chip-skipped");
+      chip.textContent = "Desactivada";
+    }
+
+    if (status === "ready" || status === "cached") {
+      const t = research.n_temas || 0;
+      const c = research.n_citas || 0;
+      counts.textContent = t + " " + (t === 1 ? "tema" : "temas") + " · " + c + " " + (c === 1 ? "cita" : "citas");
+      _setHidden(counts, false);
+      _setHidden(neutral, true);
+      _setHidden(errorEl, true);
+      btn.disabled = false;
+    } else if (status === "failed") {
+      _setHidden(counts, true);
+      _setHidden(neutral, true);
+      errorEl.textContent = research.error || "No se pudo obtener la guía de investigación.";
+      _setHidden(errorEl, false);
+      btn.disabled = false;
+    } else { // skipped
+      _setHidden(counts, true);
+      neutral.textContent = "La investigación automática está desactivada en este entorno.";
+      _setHidden(neutral, false);
+      _setHidden(errorEl, true);
+      btn.disabled = true;
+    }
+  }
+
+  async function reintentarInvestigacion() {
+    const btn = document.getElementById("btn-reintentar-investigacion");
+    const chip = document.getElementById("research-chip");
+    btn.disabled = true;
+    btn.setAttribute("aria-busy", "true");
+    const previa = chip.className;
+    chip.className = "research-chip research-chip-running";
+    chip.textContent = "En curso…";
+    try {
+      const res = await fetch("/investigar-rubrica", { method: "POST" });
+      const data = await res.json();
+      pintarResearch(data.research || null, { invalidarGuia: true });
+      _researchGuiaCargada = false;
+    } catch (e) {
+      pintarResearch(
+        { hash: _researchHash, status: "failed", n_temas: 0, n_citas: 0, error: String(e && e.message ? e.message : e) },
+        { invalidarGuia: false }
+      );
+    } finally {
+      btn.removeAttribute("aria-busy");
+      void previa;
+    }
+  }
+
+  async function cargarGuiaInvestigacion() {
+    if (_researchGuiaCargada) return;
+    const body = document.getElementById("research-guide-body");
+    body.textContent = "Cargando guía…";
+    try {
+      const res = await fetch("/investigacion-rubrica");
+      if (res.status === 404) {
+        body.textContent = "Todavía no hay guía cacheada. Reintentá la investigación.";
+        return;
+      }
+      if (!res.ok) {
+        body.textContent = "No se pudo cargar la guía (HTTP " + res.status + ").";
+        return;
+      }
+      const data = await res.json();
+      const guide = (data && data.guide) ? data.guide : "";
+      if (!guide.trim()) {
+        body.textContent = "La guía está vacía.";
+        return;
+      }
+      body.textContent = guide;
+      _researchGuiaCargada = true;
+    } catch (e) {
+      body.textContent = "Error de red al cargar la guía: " + (e && e.message ? e.message : e);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const det = document.getElementById("research-details");
+    if (det) {
+      det.addEventListener("toggle", function () {
+        if (det.open) cargarGuiaInvestigacion();
+      });
+    }
+  });
 
   function esExtensionEntregableMultimodal(name) {
     var n = (name || "").toLowerCase();

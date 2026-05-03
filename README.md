@@ -8,12 +8,13 @@ This repository is structured as a small **product-shaped** Python service: a mi
 
 ## What it does
 
-- **Rubric upload** — Save an active rubric (`.md`) used for all subsequent grading in the session.
+- **Rubric upload** — Save an active rubric (`.md`) used for all subsequent grading in the session. Triggers the **researcher agent** (see below) to build a citation-bound topic guide cached for that rubric.
 - **Text grading** — For one question/item at a time, returns suggested score, max score from the rubric, and student-facing feedback JSON.
 - **Audio grading** — Uploads audio, transcribes it with **OpenAI Whisper**, then runs the same text pipeline on the transcript.
 - **PDF / code / notebook grading** — Extracts plain text (PyMuPDF for PDF, UTF-8 read for `.py`, concatenated code cells for `.ipynb`), then scores each rubric criterion via **OpenRouter** like PDFs and aggregates totals.
 - **Batch folder flow** — Optional UI path for many submissions (`.pdf`, `.py`, or `.ipynb` per student folder) with Moodle-style folder names; exports a CSV for spreadsheets. The multipart field `entregable` is preferred; `pdf` is still accepted for backward compatibility.
 - **Results log** — Appends JSON results under the configured data directory (default `./data/resultados.json`).
+- **Research-augmented grading** — When a rubric is uploaded, an analytical researcher agent enumerates the topics it evaluates and gathers verifiable facts plus citations from **official or academic sources only**. The resulting guide is cached by rubric hash and injected as supplementary context into every grading call so the grader can cross-check student claims.
 
 ---
 
@@ -117,6 +118,49 @@ The orchestrator runs **steps 0–6** in order for every request (see [`GradingP
 
 ---
 
+## Researcher agent (rubric topic investigation)
+
+When a rubric `.md` is uploaded via `POST /cargar-rubrica`, the
+[`RubricResearchService`](src/grader_agent/services/research.py) runs
+synchronously to produce a "guía de investigación" cached by the SHA-256
+of the normalized rubric body under `data/research/<hash>.md` (with a
+`.json` sidecar holding the structured payload). Subsequent grading
+requests for the same rubric reuse the cached guide; cosmetic edits
+(whitespace, CRLF/LF) keep the same hash.
+
+The researcher uses an OpenRouter chat model with the `:online` suffix
+(default `openai/gpt-4o:online`) so the call automatically appends web
+search results. The system prompt
+[`investigador_rubrica.md`](src/grader_agent/prompts/investigador_rubrica.md)
+restricts citations to **official** sources (standards bodies — ISO,
+IEC, IEEE, IETF, W3C, NIST; manufacturer datasheets; `.gov`/`.edu`
+sites) or **academic** sources (Nature, IEEE Xplore, ACM, Springer,
+ScienceDirect, arXiv, PubMed, etc.). Citations whose hostname falls
+outside the configurable allowlist (`RESEARCH_DOMAIN_ALLOWLIST`) are
+discarded; if none survive the filter, the call returns an error and the
+grader continues without the guide (graceful degradation). Wikipedia,
+forums, and blogs are not accepted as primary citations.
+
+The grading prompt prepends the guide as a `GUÍA DE INVESTIGACIÓN`
+block before the rubric text. The system prompt explicitly tells the
+grader to use this only as factual context for verifying student claims;
+**the rubric remains the sole authority** for assigning scores, levels
+and criterion names.
+
+Endpoints:
+
+- `POST /cargar-rubrica` — also returns `{"research": {"hash", "status",
+  "n_temas", "n_citas"}}` after the upload.
+- `POST /investigar-rubrica` — re-runs the researcher (clears the cache
+  for the current rubric hash and rebuilds).
+- `GET /investigacion-rubrica` — returns the current cached guide
+  Markdown plus its structured payload (404 when missing).
+
+Set `SKIP_RESEARCH=1` to disable the researcher entirely; grading then
+runs as before this feature.
+
+---
+
 ## Two-layer content validation
 
 Applied to the **student deliverable text** (transcript or extracted PDF text), before rubric checks and grading. For every validation type in the product (request, content, rubric, item alignment, grading retries, **output JSON**, feedback), see [Validation stages (complete)](#validation-stages-complete).
@@ -167,6 +211,11 @@ Copy [`.env.example`](.env.example) to `.env` and set **both** keys for local ru
 | `LLM_MODEL` | No | Primary chat model on OpenRouter (default `gpt-4o`). `GRADER_CHAT_MODEL` is still read if `LLM_MODEL` is unset. |
 | `VALIDATION_LLM_MODEL` | No | Model for layer B validation (default `gpt-4o-mini`). |
 | `SKIP_LLM_VALIDATION` | No | `1`/`true`/`yes` skips layer B after a clean regex layer (default off). |
+| `RESEARCH_LLM_MODEL` | No | OpenRouter model id used by the researcher agent (default `openai/gpt-4o:online`; the `:online` suffix enables web search). |
+| `SKIP_RESEARCH` | No | `1`/`true`/`yes` disables the researcher entirely; grading runs without research context (default off). |
+| `RESEARCH_DOMAIN_ALLOWLIST` | No | Comma-separated suffixes of allowed citation hostnames. Empty falls back to a curated default list of academic and official-vendor domains. |
+| `RESEARCH_MAX_TOKENS` | No | Max output tokens for the research call (default `4096`). |
+| `GRADER_MAX_COMPLETION_RESEARCH` | No | Override for the research call token limit (defaults to `RESEARCH_MAX_TOKENS`). |
 | `GRADING_MAX_TOKENS` | No | Max output tokens for grading-style calls (default `8192`). |
 | `FEEDBACK_MAX_TOKENS` | No | Max output tokens for feedback-style calls (default `4096`). |
 | `VALIDATION_MAX_TOKENS` | No | Max output tokens for validation calls (default `2048`). |

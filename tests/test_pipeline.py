@@ -500,3 +500,131 @@ def test_submission_body_heading_pdf_vs_docx() -> None:
         "TEXTO PLANO DEL ENTREGABLE (DOCX)"
     )
     assert _submission_body_heading(DeliveryType.PDF_DELIVERABLE, "x.PDF") == "TEXTO PLANO DEL ENTREGABLE (PDF)"
+
+
+@patch("grader_agent.pipeline.escala_item_desde_rubrica")
+def test_research_guide_injected_into_grading_call(mock_escala: MagicMock) -> None:
+    from grader_agent.services.research_cache import CachedResearch
+
+    mock_escala.return_value = {"item": "Item1", "puntaje_maximo": 10.0, "niveles": None}
+
+    content_validation = MagicMock()
+    content_validation.validate.return_value = ContentValidationResult(
+        verdict="clean",
+        reason="ok",
+        flagged_patterns=(),
+        detection_layer="regex_only",
+    )
+    rubric_validation = MagicMock()
+    rubric_validation.validate.return_value = None
+
+    grading_payload = {
+        "scores_by_criterion": [
+            {
+                "criterion_name": "Item1",
+                "criterion_weight": 100.0,
+                "level_obtained": "Nivel 2",
+                "level_percentage": 80.0,
+                "weighted_score": 8.0,
+            }
+        ],
+        "total_weighted_score": 8.0,
+        "total_max_score": 10.0,
+    }
+    grading = MagicMock()
+    grading.grade_text_item.return_value = grading_payload
+    output_validation = MagicMock()
+    output_validation.validate.return_value = (grading_payload, [])
+    feedback = MagicMock()
+    feedback.generate_feedback.return_value = "ok"
+
+    research_service = MagicMock()
+    research_service.get_or_create.return_value = CachedResearch(
+        rubric_hash="abc",
+        guide_markdown="# Guía de investigación\n## Tema X\n- Hecho: contenido.",
+        payload={"temas": [{"tema": "Tema X"}]},
+    )
+
+    pipe = _make_pipeline(
+        content_validation=content_validation,
+        rubric_validation=rubric_validation,
+        grading=grading,
+        output_validation=output_validation,
+        feedback=feedback,
+        research=research_service,
+    )
+    req = GradingRequest(
+        delivery_type=DeliveryType.TEXT,
+        content='{"pregunta": "P1", "respuesta": "R."}',
+        student_name="Ana",
+        rubric_content=_minimal_rubric(),
+    )
+    out = pipe.run(req)
+
+    assert isinstance(out, GradingResult)
+    grading.grade_text_item.assert_called_once()
+    kwargs = grading.grade_text_item.call_args.kwargs
+    assert "research_guide" in kwargs
+    assert "Tema X" in kwargs["research_guide"]
+    research_service.get_or_create.assert_called_once()
+
+
+def test_research_failure_continues_grading_without_guide() -> None:
+    content_validation = MagicMock()
+    content_validation.validate.return_value = ContentValidationResult(
+        verdict="clean",
+        reason="ok",
+        flagged_patterns=(),
+        detection_layer="regex_only",
+    )
+    rubric_validation = MagicMock()
+    rubric_validation.validate.return_value = None
+
+    grading_payload = {
+        "scores_by_criterion": [
+            {
+                "criterion_name": "Item1",
+                "criterion_weight": 100.0,
+                "level_obtained": "Nivel 2",
+                "level_percentage": 80.0,
+                "weighted_score": 8.0,
+            }
+        ],
+        "total_weighted_score": 8.0,
+        "total_max_score": 10.0,
+    }
+    grading = MagicMock()
+    grading.grade_text_item.return_value = grading_payload
+    output_validation = MagicMock()
+    output_validation.validate.return_value = (grading_payload, [])
+    feedback = MagicMock()
+    feedback.generate_feedback.return_value = "ok"
+
+    research_service = MagicMock()
+    research_service.get_or_create.return_value = ErrorResult(
+        error_type=ERROR_TYPE_INTERNAL,
+        message="research deshabilitado",
+        detail=None,
+    )
+
+    pipe = _make_pipeline(
+        content_validation=content_validation,
+        rubric_validation=rubric_validation,
+        grading=grading,
+        output_validation=output_validation,
+        feedback=feedback,
+        research=research_service,
+    )
+    req = GradingRequest(
+        delivery_type=DeliveryType.TEXT,
+        content='{"pregunta": "P1", "respuesta": "R."}',
+        student_name="Ana",
+        rubric_content=_minimal_rubric(),
+    )
+    with patch("grader_agent.pipeline.escala_item_desde_rubrica") as mock_escala:
+        mock_escala.return_value = {"item": "Item1", "puntaje_maximo": 10.0, "niveles": None}
+        out = pipe.run(req)
+
+    assert isinstance(out, GradingResult)
+    kwargs = grading.grade_text_item.call_args.kwargs
+    assert kwargs.get("research_guide") is None

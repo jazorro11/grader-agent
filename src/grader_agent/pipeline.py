@@ -25,6 +25,7 @@ from grader_agent.services.grading import GradingService
 from grader_agent.services.output_validation import OutputValidationService
 from grader_agent.services.code_notebook_extraction import CodeNotebookExtractionService
 from grader_agent.services.pdf_extraction import PDFExtractionService
+from grader_agent.services.research import RubricResearchService
 from grader_agent.services.rubric_validation import RubricValidationService
 from grader_agent.services.transcription import TranscriptionService
 
@@ -268,6 +269,7 @@ class GradingPipeline:
         grading: GradingService,
         output_validation: OutputValidationService,
         feedback: FeedbackService,
+        research: RubricResearchService | None = None,
     ) -> None:
         """Wire all pipeline stages; callers typically use ``create_grading_pipeline``."""
         self._transcription = transcription_service
@@ -278,6 +280,12 @@ class GradingPipeline:
         self._grading = grading
         self._output = output_validation
         self._feedback = feedback
+        self._research = research
+
+    @property
+    def research_service(self) -> RubricResearchService | None:
+        """Expose the optional research service so HTTP handlers can reuse it."""
+        return self._research
 
     def run(self, request: GradingRequest) -> GradingResult | ErrorResult:
         """
@@ -342,6 +350,10 @@ class GradingPipeline:
                     detail=None,
                 )
 
+        research_guide = self._resolve_research_guide(
+            request.rubric_content, request_id=request_id
+        )
+
         body_heading = _submission_body_heading(delivery, archivo_path or "")
         grading_out = self._step4_grade_with_json_retries(
             delivery=delivery,
@@ -350,6 +362,7 @@ class GradingPipeline:
             item_question=item_question,
             request_id=request_id,
             submission_body_heading=body_heading,
+            research_guide=research_guide,
         )
         if isinstance(grading_out, ErrorResult):
             return grading_out
@@ -483,6 +496,7 @@ class GradingPipeline:
         item_question: str,
         request_id: str,
         submission_body_heading: str,
+        research_guide: str | None = None,
     ) -> dict | ErrorResult:
         """
         Paso 4: invoca ``GradingService`` y reintenta hasta 3 veces ante fallos
@@ -496,6 +510,7 @@ class GradingPipeline:
                     item_question,
                     plain_text,
                     request_id=request_id,
+                    research_guide=research_guide,
                 )
             else:
                 out = self._grading.grade_pdf_submission_text(
@@ -503,6 +518,7 @@ class GradingPipeline:
                     plain_text,
                     request_id=request_id,
                     submission_body_heading=submission_body_heading,
+                    research_guide=research_guide,
                 )
             if isinstance(out, dict):
                 if attempt:
@@ -523,6 +539,33 @@ class GradingPipeline:
             )
         assert last is not None
         return last
+
+    def _resolve_research_guide(
+        self,
+        rubric_md: str,
+        *,
+        request_id: str,
+    ) -> str | None:
+        """Look up (or build) the rubric research guide; degrade gracefully on failure."""
+        if self._research is None:
+            return None
+        try:
+            cached = self._research.get_or_create(rubric_md, request_id=request_id)
+        except Exception:
+            _logger.warning(
+                "research lookup raised request_id=%s; continuing without guide",
+                request_id,
+                exc_info=True,
+            )
+            return None
+        if isinstance(cached, ErrorResult):
+            _logger.info(
+                "research unavailable request_id=%s err=%s",
+                request_id,
+                cached.message,
+            )
+            return None
+        return cached.guide_markdown
 
 
 __all__ = ["GradingPipeline"]
