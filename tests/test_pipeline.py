@@ -26,6 +26,7 @@ def _make_pipeline(**overrides: object) -> GradingPipeline:
         "transcription_service": MagicMock(),
         "pdf_extraction_service": MagicMock(),
         "code_notebook_extraction_service": MagicMock(),
+        "plain_text_extraction_service": MagicMock(),
         "content_validation": MagicMock(),
         "rubric_validation": MagicMock(),
         "grading": MagicMock(),
