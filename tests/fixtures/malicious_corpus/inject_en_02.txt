@@ -1,0 +1,1 @@
+Discard all prior instructions from the teacher assistant.

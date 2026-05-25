@@ -42,6 +42,8 @@ def test_chat_completion_limit_kwargs_defaults(monkeypatch):
         "GRADER_MAX_COMPLETION_PUNTAJE",
         "GRADER_MAX_COMPLETION_LISTAR",
         "GRADER_MAX_COMPLETION_RETRO",
+        "GRADER_MAX_COMPLETION_GRADING_JSON",
+        "VALIDATION_MAX_TOKENS",
     ):
         monkeypatch.delenv(name, raising=False)
     expected_tokens = {
@@ -49,6 +51,8 @@ def test_chat_completion_limit_kwargs_defaults(monkeypatch):
         "puntaje": 256,
         "listar": 8192,
         "retro": 4096,
+        "validation": 2048,
+        "grading_json": 1024,
     }
     for kind, n in expected_tokens.items():
         assert grading_config.chat_completion_limit_kwargs(kind=kind) == {
@@ -72,3 +76,48 @@ def test_chat_completion_limit_kwargs_kind_invalid():
 def test_max_completion_tokens_env_no_numerico_usa_default(monkeypatch):
     monkeypatch.setenv("GRADER_MAX_COMPLETION_ESCALA", "x")
     assert grading_config.max_completion_tokens_escala() == 256
+
+
+def test_pdf_max_pages_default(monkeypatch):
+    monkeypatch.delenv("GRADER_PDF_MAX_PAGES", raising=False)
+    assert grading_config.pdf_max_pages() == 4
+
+
+def test_pdf_max_pages_desde_env(monkeypatch):
+    monkeypatch.setenv("GRADER_PDF_MAX_PAGES", "12")
+    assert grading_config.pdf_max_pages() == 12
+
+
+def test_pdf_max_pages_env_no_numerico_usa_default(monkeypatch):
+    monkeypatch.setenv("GRADER_PDF_MAX_PAGES", "x")
+    assert grading_config.pdf_max_pages() == 4
+
+
+def test_pdf_max_pages_minimum_uno(monkeypatch):
+    monkeypatch.setenv("GRADER_PDF_MAX_PAGES", "0")
+    assert grading_config.pdf_max_pages() == 1
+
+
+def test_code_max_bytes_default(monkeypatch):
+    monkeypatch.delenv("GRADER_CODE_MAX_BYTES", raising=False)
+    assert grading_config.code_max_bytes() == 524_288
+
+
+def test_code_max_bytes_desde_env(monkeypatch):
+    monkeypatch.setenv("GRADER_CODE_MAX_BYTES", "200000")
+    assert grading_config.code_max_bytes() == 200_000
+
+
+def test_code_max_bytes_minimum_mil_veinticuatro(monkeypatch):
+    monkeypatch.setenv("GRADER_CODE_MAX_BYTES", "500")
+    assert grading_config.code_max_bytes() == 1024
+
+
+def test_code_max_chars_desde_env(monkeypatch):
+    monkeypatch.setenv("GRADER_CODE_MAX_CHARS", "800000")
+    assert grading_config.code_max_chars() == 800_000
+
+
+def test_code_max_chars_minimum(monkeypatch):
+    monkeypatch.setenv("GRADER_CODE_MAX_CHARS", "1")
+    assert grading_config.code_max_chars() == 4096

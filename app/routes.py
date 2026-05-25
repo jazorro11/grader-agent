@@ -11,23 +11,92 @@ from pathlib import Path
 from flask import Flask, current_app, jsonify, render_template, request
 from openai import OpenAIError
 
-from grader_agent.export_csv import resultados_entregables_a_csv
-from grader_agent.grading.pdf import (
-    calificar_entregable_pdf,
-    extraer_texto_json,
-    extraer_texto_pdf,
-    metadatos_criterios_desde_rubrica,
+from app.grading_http import (
+    build_audio_grading_request,
+    build_code_deliverable_grading_request,
+    build_pdf_grading_request,
+    build_text_grading_request,
+    error_result_http_response,
+    grading_rejection_message,
+    grading_result_rejection_http_response,
+    grading_result_to_pdf_ui_dict,
+    grading_result_to_text_audio_ui_dict,
+    run_grading_request,
 )
-from grader_agent.grading.text import calificar_respuesta
+from grader_agent.export_csv import resultados_entregables_a_csv
+from grader_agent.grading_config import pdf_max_pages
+from grader_agent.grading.pdf import metadatos_criterios_desde_rubrica
 from grader_agent.moodle_paths import parse_carpeta_moodle
-from grader_agent.settings import GraderPaths
-from grader_agent.transcription import transcribir_audio
+from grader_agent.models import ErrorResult, GradingResult
+from grader_agent.services.research import RubricResearchService
+from grader_agent.services.research_cache import read_cached, rubric_hash
+from grader_agent.settings import GraderPaths, skip_research
 
 _logger = logging.getLogger(__name__)
 
 
 def _paths() -> GraderPaths:
     return current_app.config["GRADER_PATHS"]
+
+
+def _research_service() -> RubricResearchService | None:
+    pipeline = current_app.config.get("GRADING_PIPELINE")
+    return getattr(pipeline, "research_service", None) if pipeline is not None else None
+
+
+def _research_summary(
+    rubric_md: str,
+    *,
+    force_refresh: bool = False,
+) -> dict:
+    """Run (or look up) the research guide and return a JSON-friendly summary."""
+    if skip_research():
+        return {"hash": "", "status": "skipped", "n_temas": 0, "n_citas": 0}
+
+    service = _research_service()
+    if service is None:
+        return {
+            "hash": "",
+            "status": "skipped",
+            "n_temas": 0,
+            "n_citas": 0,
+            "error": "El agente investigador no está configurado.",
+        }
+
+    paths = _paths()
+    hash_hex = rubric_hash(rubric_md)
+    was_cached = read_cached(paths, hash_hex) is not None and not force_refresh
+
+    try:
+        cached = service.get_or_create(rubric_md, force_refresh=force_refresh)
+    except Exception as exc:
+        _logger.exception("research run failed unexpectedly")
+        return {
+            "hash": hash_hex,
+            "status": "failed",
+            "n_temas": 0,
+            "n_citas": 0,
+            "error": str(exc),
+        }
+
+    if isinstance(cached, ErrorResult):
+        return {
+            "hash": hash_hex,
+            "status": "failed",
+            "n_temas": 0,
+            "n_citas": 0,
+            "error": cached.message,
+        }
+
+    payload = cached.payload
+    n_temas = len(payload.get("temas") or [])
+    n_citas = sum(len(t.get("citas") or []) for t in payload.get("temas") or [])
+    return {
+        "hash": cached.rubric_hash,
+        "status": "cached" if was_cached else "ready",
+        "n_temas": n_temas,
+        "n_citas": n_citas,
+    }
 
 
 def _leer_rubrica_activa() -> str:
@@ -48,6 +117,15 @@ def _guardar_resultado(_alumno: str, resultado: dict) -> None:
     ruta.write_text(json.dumps(datos, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _suffix_entregable_multimodal(filename: str) -> str | None:
+    """Sufijo temporal válido para PDF, Word, Python o Jupyter; ``None`` si no está permitido."""
+    low = (filename or "").lower()
+    for suf in (".pdf", ".docx", ".py", ".ipynb"):
+        if low.endswith(suf):
+            return suf
+    return None
+
+
 def _contenido_rubrica_desde_upload(archivo):
     """Return (text, None) on success, or (None, (response, status)) on UTF-8 error."""
     try:
@@ -56,26 +134,12 @@ def _contenido_rubrica_desde_upload(archivo):
         return None, (jsonify({"error": "El archivo no es texto UTF-8 válido"}), 400)
 
 
-def _api_error_response(exc: OpenAIError) -> tuple:
-    return (
-        jsonify(
-            {
-                "error": (
-                    "The AI grading service failed or is temporarily unavailable. "
-                    "Check your API key, quota, and network, then try again."
-                )
-            }
-        ),
-        502,
-    )
-
-
 def register_routes(app: Flask) -> None:
     """Attach all URL rules to ``app``."""
 
     @app.route("/")
     def index():
-        return render_template("index.html")
+        return render_template("index.html", pdf_max_pages=pdf_max_pages())
 
     @app.route("/calificar-texto", methods=["POST"])
     def calificar_texto():
@@ -95,15 +159,24 @@ def register_routes(app: Flask) -> None:
         if not rubrica:
             return jsonify({"error": "Primero cargá una rúbrica"}), 400
 
-        try:
-            resultado = calificar_respuesta(rubrica, pregunta, respuesta)
-        except ValueError as e:
-            return jsonify({"error": str(e)}), 400
-        except OpenAIError as e:
-            return _api_error_response(e)
+        pipe_req = build_text_grading_request(
+            rubric=rubrica,
+            student_name=str(nombre_alumno),
+            pregunta=pregunta,
+            respuesta=respuesta,
+        )
+        out = run_grading_request(pipe_req)
+        if isinstance(out, ErrorResult):
+            return error_result_http_response(out)
+        if not isinstance(out, GradingResult):
+            return jsonify({"error": "Respuesta inválida del motor de calificación."}), 500
 
-        resultado["alumno"] = nombre_alumno
-        _guardar_resultado(nombre_alumno, resultado)
+        rej = grading_result_rejection_http_response(out)
+        if rej is not None:
+            return rej
+
+        resultado = grading_result_to_text_audio_ui_dict(out)
+        _guardar_resultado(resultado["alumno"], resultado)
         return jsonify(resultado)
 
     @app.route("/calificar-audio", methods=["POST"])
@@ -117,39 +190,40 @@ def register_routes(app: Flask) -> None:
         if not pregunta:
             return jsonify({"error": "La pregunta / ítem no puede estar vacía"}), 400
 
+        rubrica = _leer_rubrica_activa()
+        if not rubrica:
+            return jsonify({"error": "Primero cargá una rúbrica"}), 400
+
         suffix = Path(audio.filename or "").suffix or ".webm"
         fd, tmp_path = tempfile.mkstemp(suffix=suffix)
         os.close(fd)
         try:
             audio.save(tmp_path)
-            try:
-                transcripcion = transcribir_audio(tmp_path)
-            except ValueError as e:
-                return jsonify({"error": str(e)}), 400
-            except OpenAIError as e:
-                return _api_error_response(e)
+            pipe_req = build_audio_grading_request(
+                rubric=rubrica,
+                student_name=str(nombre_alumno),
+                pregunta=pregunta,
+                audio_path=tmp_path,
+            )
+            out = run_grading_request(pipe_req)
+            if isinstance(out, ErrorResult):
+                return error_result_http_response(out)
+            if not isinstance(out, GradingResult):
+                return jsonify({"error": "Respuesta inválida del motor de calificación."}), 500
+
+            rej = grading_result_rejection_http_response(out)
+            if rej is not None:
+                return rej
+
+            resultado = grading_result_to_text_audio_ui_dict(out)
+            _guardar_resultado(resultado["alumno"], resultado)
+            return jsonify(resultado)
         finally:
             if os.path.isfile(tmp_path):
                 try:
                     os.remove(tmp_path)
                 except OSError:
                     pass
-
-        rubrica = _leer_rubrica_activa()
-        if not rubrica:
-            return jsonify({"error": "Primero cargá una rúbrica"}), 400
-
-        try:
-            resultado = calificar_respuesta(rubrica, pregunta, transcripcion)
-        except ValueError as e:
-            return jsonify({"error": str(e)}), 400
-        except OpenAIError as e:
-            return _api_error_response(e)
-
-        resultado["alumno"] = nombre_alumno
-        resultado["transcripcion"] = transcripcion
-        _guardar_resultado(nombre_alumno, resultado)
-        return jsonify(resultado)
 
     @app.route("/resultados", methods=["GET"])
     def ver_resultados():
@@ -176,38 +250,91 @@ def register_routes(app: Flask) -> None:
         path = _paths().active_rubric_file
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(contenido, encoding="utf-8")
-        return jsonify({"ok": True, "mensaje": "Rúbrica de parcial cargada"})
+        research_info = _research_summary(contenido)
+        return jsonify(
+            {
+                "ok": True,
+                "mensaje": "Rúbrica de parcial cargada",
+                "research": research_info,
+            }
+        )
+
+    @app.route("/investigar-rubrica", methods=["POST"])
+    def investigar_rubrica():
+        rubrica = _leer_rubrica_activa()
+        if not rubrica:
+            return jsonify({"error": "Primero cargá una rúbrica"}), 400
+        research_info = _research_summary(rubrica, force_refresh=True)
+        if research_info.get("status") == "failed":
+            return jsonify({"ok": False, "research": research_info}), 502
+        return jsonify({"ok": True, "research": research_info})
+
+    @app.route("/investigacion-rubrica", methods=["GET"])
+    def obtener_investigacion_rubrica():
+        rubrica = _leer_rubrica_activa()
+        if not rubrica:
+            return jsonify({"error": "Primero cargá una rúbrica"}), 400
+        if skip_research():
+            return jsonify({"status": "skipped", "guide": "", "payload": None})
+        paths = _paths()
+        hash_hex = rubric_hash(rubrica)
+        cached = read_cached(paths, hash_hex)
+        if cached is None:
+            return jsonify({"status": "missing", "guide": "", "payload": None}), 404
+        return jsonify(
+            {
+                "status": "ready",
+                "hash": cached.rubric_hash,
+                "guide": cached.guide_markdown,
+                "payload": cached.payload,
+            }
+        )
 
     @app.route("/calificar-entregable", methods=["POST"])
     def calificar_entregable():
-        archivo = request.files.get("pdf")
+        archivo = request.files.get("entregable") or request.files.get("pdf")
         nombre_alumno = request.form.get("alumno", "Alumno")
 
         if not archivo:
-            return jsonify({"error": "No se recibió archivo"}), 400
+            return jsonify({"error": "No se recibió archivo de entrega"}), 400
+
+        suf = _suffix_entregable_multimodal(archivo.filename or "")
+        if suf is None:
+            return jsonify({"error": "Solo se aceptan archivos .pdf, .docx, .py o .ipynb"}), 400
 
         rubrica = _leer_rubrica_activa()
         if not rubrica:
             return jsonify({"error": "Primero cargá una rúbrica (.md) en este bloque"}), 400
 
-        ext = Path(archivo.filename or "").suffix.lower()
-        if ext not in (".pdf", ".json"):
-            return jsonify({"error": "Tipo de archivo no soportado. Usá .pdf o .json"}), 400
-
-        fd, ruta_tmp = tempfile.mkstemp(suffix=ext)
+        fd, ruta_tmp = tempfile.mkstemp(suffix=suf)
         os.close(fd)
         try:
             archivo.save(ruta_tmp)
-            try:
-                if ext == ".pdf":
-                    texto = extraer_texto_pdf(ruta_tmp)
-                else:
-                    texto = extraer_texto_json(ruta_tmp)
-                resultado = calificar_entregable_pdf(rubrica, texto, nombre_alumno)
-            except ValueError as e:
-                return jsonify({"error": str(e)}), 400
-            except OpenAIError as e:
-                return _api_error_response(e)
+            if suf in (".pdf", ".docx"):
+                pipe_req = build_pdf_grading_request(
+                    rubric=rubrica,
+                    student_name=nombre_alumno,
+                    pdf_path=ruta_tmp,
+                )
+            else:
+                pipe_req = build_code_deliverable_grading_request(
+                    rubric=rubrica,
+                    student_name=nombre_alumno,
+                    file_path=ruta_tmp,
+                )
+            out = run_grading_request(pipe_req)
+            if isinstance(out, ErrorResult):
+                return error_result_http_response(out)
+            if not isinstance(out, GradingResult):
+                return jsonify({"error": "Respuesta inválida del motor de calificación."}), 500
+
+            rej = grading_result_rejection_http_response(out)
+            if rej is not None:
+                return rej
+
+            resultado = grading_result_to_pdf_ui_dict(out)
+            _guardar_resultado(nombre_alumno, resultado)
+            return jsonify(resultado)
         finally:
             if os.path.isfile(ruta_tmp):
                 try:
@@ -215,30 +342,32 @@ def register_routes(app: Flask) -> None:
                 except OSError:
                     pass
 
-        _guardar_resultado(nombre_alumno, resultado)
-        return jsonify(resultado)
-
     @app.route("/calificar-carpeta-entregables", methods=["POST"])
     def calificar_carpeta_entregables():
-        pdfs = request.files.getlist("pdf")
+        entregables = request.files.getlist("entregable")
+        pdfs_legacy = request.files.getlist("pdf")
+        archivos_subida = entregables if entregables else pdfs_legacy
         alumnos = request.form.getlist("alumno")
         nombres_completos = request.form.getlist("nombre_completo")
         ids = request.form.getlist("id_estudiante")
         carpetas = request.form.getlist("carpeta_origen")
         archivos = request.form.getlist("archivo_entregable")
 
-        if not pdfs:
-            return jsonify({"error": "No se recibieron archivos PDF"}), 400
+        if not archivos_subida:
+            return jsonify({"error": "No se recibieron archivos de entrega (.pdf, .docx, .py o .ipynb)"}), 400
 
-        n = len(pdfs)
+        n = len(archivos_subida)
         if len(alumnos) != n:
-            return jsonify(
-                {
-                    "error": (
-                        "La cantidad de valores «alumno» no coincide con la de archivos PDF"
-                    )
-                }
-            ), 400
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "La cantidad de valores «alumno» no coincide con la de archivos de entrega"
+                        )
+                    }
+                ),
+                400,
+            )
 
         def _pad(lst: list[str], length: int) -> list[str]:
             out = list(lst)
@@ -259,28 +388,41 @@ def register_routes(app: Flask) -> None:
             metadatos = metadatos_criterios_desde_rubrica(rubrica)
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
-        except OpenAIError as e:
-            return _api_error_response(e)
+        except OpenAIError:
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "The AI grading service failed or is temporarily unavailable. "
+                            "Check your API key, quota, and network, then try again."
+                        )
+                    }
+                ),
+                502,
+            )
 
         if not metadatos:
-            return jsonify(
-                {
-                    "error": (
-                        "No se identificaron criterios evaluables en la rúbrica. "
-                        "Revisá que el .md describa ítems o criterios con puntaje."
-                    )
-                }
-            ), 400
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "No se identificaron criterios evaluables en la rúbrica. "
+                            "Revisá que el .md describa ítems o criterios con puntaje."
+                        )
+                    }
+                ),
+                400,
+            )
         criterios = [m["criterio"] for m in metadatos]
 
         resultados: list[dict] = []
         errores: list[dict] = []
 
         for i in range(n):
-            pdf = pdfs[i]
+            sub = archivos_subida[i]
             alumno = alumnos[i] or "Alumno"
             carpeta = carpetas[i]
-            archivo_nom = archivos[i] or (pdf.filename or "")
+            archivo_nom = archivos[i] or (sub.filename or "")
 
             parsed = parse_carpeta_moodle(carpeta) if carpeta else {}
             nombre_completo = (nombres_completos[i] or "").strip() or parsed.get(
@@ -291,50 +433,69 @@ def register_routes(app: Flask) -> None:
             if not nombre_completo:
                 nombre_completo = alumno
 
-            ext = Path(pdf.filename or "").suffix.lower()
-            if ext not in (".pdf", ".json"):
+            suf = _suffix_entregable_multimodal(sub.filename or "")
+            if suf is None:
                 errores.append(
                     {
                         "alumno": alumno,
                         "carpeta_origen": carpeta,
-                        "error": "Tipo de archivo no soportado. Usá .pdf o .json",
+                        "error": "Extensión no permitida (solo .pdf, .docx, .py o .ipynb).",
                     }
                 )
                 continue
 
-            resultado = None
-            fd, ruta_tmp = tempfile.mkstemp(suffix=ext)
+            resultado_dict: dict | None = None
+            fd, ruta_tmp = tempfile.mkstemp(suffix=suf)
             os.close(fd)
             try:
-                pdf.save(ruta_tmp)
+                sub.save(ruta_tmp)
                 try:
-                    if ext == ".pdf":
-                        texto = extraer_texto_pdf(ruta_tmp)
+                    if suf in (".pdf", ".docx"):
+                        pipe_req = build_pdf_grading_request(
+                            rubric=rubrica,
+                            student_name=alumno,
+                            pdf_path=ruta_tmp,
+                        )
                     else:
-                        texto = extraer_texto_json(ruta_tmp)
-                    resultado = calificar_entregable_pdf(
-                        rubrica, texto, alumno, metadatos_criterios=metadatos
-                    )
-                except ValueError as e:
-                    errores.append(
-                        {
-                            "alumno": alumno,
-                            "carpeta_origen": carpeta,
-                            "error": str(e),
-                        }
-                    )
-                except OpenAIError as e:
-                    errores.append(
-                        {
-                            "alumno": alumno,
-                            "carpeta_origen": carpeta,
-                            "error": str(e),
-                        }
-                    )
+                        pipe_req = build_code_deliverable_grading_request(
+                            rubric=rubrica,
+                            student_name=alumno,
+                            file_path=ruta_tmp,
+                        )
+                    out = run_grading_request(pipe_req)
+                    if isinstance(out, ErrorResult):
+                        errores.append(
+                            {
+                                "alumno": alumno,
+                                "carpeta_origen": carpeta,
+                                "error": out.message,
+                            }
+                        )
+                    elif isinstance(out, GradingResult):
+                        rmsg = grading_rejection_message(out)
+                        if rmsg is not None:
+                            errores.append(
+                                {
+                                    "alumno": alumno,
+                                    "carpeta_origen": carpeta,
+                                    "error": rmsg,
+                                }
+                            )
+                        else:
+                            resultado_dict = grading_result_to_pdf_ui_dict(
+                                out,
+                                criterios_order=criterios,
+                            )
+                    else:
+                        errores.append(
+                            {
+                                "alumno": alumno,
+                                "carpeta_origen": carpeta,
+                                "error": "Respuesta inválida del motor de calificación.",
+                            }
+                        )
                 except Exception:
-                    _logger.exception(
-                        "Unexpected error while grading for alumno=%s", alumno
-                    )
+                    _logger.exception("Unexpected error while grading entregable for alumno=%s", alumno)
                     errores.append(
                         {
                             "alumno": alumno,
@@ -352,16 +513,16 @@ def register_routes(app: Flask) -> None:
                     except OSError:
                         pass
 
-            if resultado is None:
+            if resultado_dict is None:
                 continue
 
-            resultado["nombre_completo"] = nombre_completo
-            resultado["id_estudiante"] = id_est
-            resultado["carpeta_origen"] = carpeta
-            resultado["archivo_pdf"] = archivo_nom
+            resultado_dict["nombre_completo"] = nombre_completo
+            resultado_dict["id_estudiante"] = id_est
+            resultado_dict["carpeta_origen"] = carpeta
+            resultado_dict["archivo_pdf"] = archivo_nom
 
-            _guardar_resultado(alumno, resultado)
-            resultados.append(resultado)
+            _guardar_resultado(alumno, resultado_dict)
+            resultados.append(resultado_dict)
 
         csv_text = resultados_entregables_a_csv(resultados, criterios)
         return jsonify(
@@ -375,8 +536,6 @@ def register_routes(app: Flask) -> None:
     @app.errorhandler(413)
     def _payload_demasiado_grande(_e):
         return (
-            jsonify(
-                {"error": "El archivo supera el tamaño máximo permitido (16 MB)"}
-            ),
+            jsonify({"error": "El archivo supera el tamaño máximo permitido (16 MB)"}),
             413,
         )
