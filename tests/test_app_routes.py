@@ -364,16 +364,17 @@ def test_calificar_carpeta_sin_criterios_en_rubrica_devuelve_400(mock_meta, app_
     mock_meta.assert_called_once()
 
 
+@patch.object(routes_module, "extraer_texto_pdf", return_value="texto")
 @patch.object(routes_module, "calificar_entregable_pdf")
 @patch.object(routes_module, "metadatos_criterios_desde_rubrica")
 def test_calificar_carpeta_valueerror_en_un_pdf_deja_resto_ok(
-    mock_meta, mock_pdf, app_client
+    mock_meta, mock_pdf, mock_extraer_pdf, app_client
 ):
     write_rubrica_parcial(app_client["rubrics"])
     mock_meta.return_value = [{"criterio": "C1", "puntaje_maximo": 2}]
     fila_ok = {
         "alumno": "BOB",
-        "tipo": "entregable_pdf",
+        "tipo": "entregable",
         "criterios": [
             {
                 "criterio": "C1",
@@ -409,14 +410,15 @@ def test_calificar_carpeta_valueerror_en_un_pdf_deja_resto_ok(
     assert "pdf roto" in body["errores"][0]["error"]
 
 
+@patch.object(routes_module, "extraer_texto_pdf", return_value="texto extraido")
 @patch.object(routes_module, "calificar_entregable_pdf")
 @patch.object(routes_module, "metadatos_criterios_desde_rubrica")
-def test_calificar_carpeta_camino_feliz(mock_meta, mock_pdf, app_client):
+def test_calificar_carpeta_camino_feliz(mock_meta, mock_pdf, mock_extraer_pdf, app_client):
     write_rubrica_parcial(app_client["rubrics"])
     mock_meta.return_value = [{"criterio": "Criterio uno", "puntaje_maximo": 10}]
     fila = {
         "alumno": "ANA (111111)",
-        "tipo": "entregable_pdf",
+        "tipo": "entregable",
         "criterios": [
             {
                 "criterio": "Criterio uno",
@@ -434,13 +436,13 @@ def test_calificar_carpeta_camino_feliz(mock_meta, mock_pdf, app_client):
     md.add("nombre_completo", "ANA")
     md.add("id_estudiante", "111111")
     md.add("carpeta_origen", "ANA_111111_assignsubmission_file")
-    md.add("archivo_pdf", "sol.pdf")
+    md.add("archivo_entregable", "sol.pdf")
     md.add("pdf", (BytesIO(b"%PDF-1"), "sol.pdf"))
     md.add("alumno", "BOB (222222)")
     md.add("nombre_completo", "BOB")
     md.add("id_estudiante", "222222")
     md.add("carpeta_origen", "BOB_222222_assignsubmission_file")
-    md.add("archivo_pdf", "t.pdf")
+    md.add("archivo_entregable", "t.pdf")
     md.add("pdf", (BytesIO(b"%PDF-2"), "t.pdf"))
     rv = app_client["client"].post(
         "/calificar-carpeta-entregables",
