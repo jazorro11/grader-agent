@@ -1,0 +1,1 @@
+La retroalimentación negativa reduce la diferencia entre la salida deseada y la medida. Sirve para estabilizar, pero no desarrollo el ejemplo del curso ni contrasto con retroalimentación positiva.

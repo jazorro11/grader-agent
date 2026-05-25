@@ -2,9 +2,59 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
+
+_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+_DEFAULT_LLM_MODEL = "gpt-4o"
+_DEFAULT_VALIDATION_MODEL = "gpt-4o-mini"
+_DEFAULT_RESEARCH_MODEL = "openai/gpt-4o:online"
+_DEFAULT_GRADING_MAX_TOKENS = 8192
+_DEFAULT_FEEDBACK_MAX_TOKENS = 4096
+_DEFAULT_VALIDATION_MAX_TOKENS = 2048
+_DEFAULT_RESEARCH_MAX_TOKENS = 4096
+
+_DEFAULT_RESEARCH_DOMAIN_ALLOWLIST: tuple[str, ...] = (
+    ".edu",
+    ".gov",
+    ".int",
+    ".mil",
+    "ieee.org",
+    "acm.org",
+    "springer.com",
+    "link.springer.com",
+    "sciencedirect.com",
+    "nature.com",
+    "science.org",
+    "arxiv.org",
+    "ssrn.com",
+    "ncbi.nlm.nih.gov",
+    "pubmed.ncbi.nlm.nih.gov",
+    "scholar.google.com",
+    "iso.org",
+    "iec.ch",
+    "ietf.org",
+    "rfc-editor.org",
+    "w3.org",
+    "nist.gov",
+    "ti.com",
+    "analog.com",
+    "microchip.com",
+    "intel.com",
+    "infineon.com",
+    "st.com",
+    "nxp.com",
+    "docs.python.org",
+    "python.org",
+    "numpy.org",
+    "scipy.org",
+    "matplotlib.org",
+)
+
+_TRUTHY = frozenset({"1", "true", "yes"})
 
 
 def _project_root() -> Path:
@@ -13,7 +63,19 @@ def _project_root() -> Path:
 
 
 def _default_data_dir() -> Path:
+    """Default ``data/`` directory at repo root when ``GRADER_DATA_DIR`` is unset."""
     return _project_root() / "data"
+
+
+def _int_env(name: str, default: int, *, minimum: int = 1) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        v = int(raw)
+    except ValueError:
+        return default
+    return max(minimum, v)
 
 
 @dataclass(frozen=True)
@@ -24,6 +86,7 @@ class GraderPaths:
     rubrics_dir: Path
     active_rubric_file: Path
     results_json: Path
+    research_dir: Path
 
     @classmethod
     def from_env(cls) -> GraderPaths:
@@ -35,38 +98,157 @@ class GraderPaths:
             rubrics_dir=rubrics,
             active_rubric_file=rubrics / "rubrica_activa.md",
             results_json=base / "resultados.json",
+            research_dir=base / "research",
         )
 
     def ensure_directories(self) -> None:
+        """Create ``data_dir``, ``rubrics_dir`` and ``research_dir`` if missing."""
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.rubrics_dir.mkdir(parents=True, exist_ok=True)
+        self.research_dir.mkdir(parents=True, exist_ok=True)
+
+
+def llm_model() -> str:
+    """Primary chat model; ``LLM_MODEL`` wins, then legacy ``GRADER_CHAT_MODEL``."""
+    v = os.environ.get("LLM_MODEL", "").strip()
+    if v:
+        return v
+    v = os.environ.get("GRADER_CHAT_MODEL", "").strip()
+    if v:
+        return v
+    return _DEFAULT_LLM_MODEL
 
 
 def chat_model() -> str:
-    return os.environ.get("GRADER_CHAT_MODEL", "gpt-4o").strip() or "gpt-4o"
+    """Alias for :func:`llm_model` (existing call sites)."""
+    return llm_model()
 
 
 def transcription_model() -> str:
-    return (
-        os.environ.get("GRADER_TRANSCRIPTION_MODEL", "whisper-1").strip()
-        or "whisper-1"
-    )
+    """Speech-to-text model id for ``audio.transcriptions`` (default ``whisper-1``)."""
+    return os.environ.get("GRADER_TRANSCRIPTION_MODEL", "whisper-1").strip() or "whisper-1"
 
 
 def transcription_language() -> str:
+    """ISO-639-1 hint passed to the transcription API (default ``es``)."""
     return os.environ.get("GRADER_TRANSCRIPTION_LANGUAGE", "es").strip() or "es"
 
 
-def validate_openai_api_key_for_runtime(*, testing: bool) -> None:
+def openrouter_api_key() -> str:
+    """Secret for OpenRouter chat completions (trimmed; empty if unset)."""
+    return os.environ.get("OPENROUTER_API_KEY", "").strip()
+
+
+def openai_api_key() -> str:
+    """API key for direct OpenAI calls (e.g. Whisper)."""
+    return os.environ.get("OPENAI_API_KEY", "").strip()
+
+
+def openrouter_base_url() -> str:
+    """Chat API base URL for the OpenRouter-compatible OpenAI SDK client."""
+    return _OPENROUTER_BASE_URL
+
+
+def validation_llm_model() -> str:
+    """Chat model id for layer B content validation (default ``gpt-4o-mini``)."""
+    return (
+        os.environ.get("VALIDATION_LLM_MODEL", _DEFAULT_VALIDATION_MODEL).strip()
+        or _DEFAULT_VALIDATION_MODEL
+    )
+
+
+def skip_llm_validation() -> bool:
+    """Return True when ``SKIP_LLM_VALIDATION`` is a truthy string (skip layer B)."""
+    raw = os.environ.get("SKIP_LLM_VALIDATION", "").strip().lower()
+    return raw in _TRUTHY
+
+
+def grading_max_tokens() -> int:
+    """Max completion tokens for grading JSON calls (env ``GRADING_MAX_TOKENS``)."""
+    return _int_env("GRADING_MAX_TOKENS", _DEFAULT_GRADING_MAX_TOKENS)
+
+
+def feedback_max_tokens() -> int:
+    """Max completion tokens for student feedback calls (env ``FEEDBACK_MAX_TOKENS``)."""
+    return _int_env("FEEDBACK_MAX_TOKENS", _DEFAULT_FEEDBACK_MAX_TOKENS)
+
+
+def validation_max_tokens() -> int:
+    """Max completion tokens for validation calls (env ``VALIDATION_MAX_TOKENS``)."""
+    return _int_env("VALIDATION_MAX_TOKENS", _DEFAULT_VALIDATION_MAX_TOKENS)
+
+
+def research_model() -> str:
+    """OpenRouter chat model id for the rubric researcher (default ``openai/gpt-4o:online``).
+
+    The ``:online`` suffix on OpenRouter automatically appends web search
+    results. Override via ``RESEARCH_LLM_MODEL`` to use a different
+    online-capable model.
     """
-    Ensure ``OPENAI_API_KEY`` is set for real runs.
+    return (
+        os.environ.get("RESEARCH_LLM_MODEL", _DEFAULT_RESEARCH_MODEL).strip()
+        or _DEFAULT_RESEARCH_MODEL
+    )
+
+
+def research_max_tokens() -> int:
+    """Max completion tokens for the rubric researcher call."""
+    return _int_env("RESEARCH_MAX_TOKENS", _DEFAULT_RESEARCH_MAX_TOKENS)
+
+
+def skip_research() -> bool:
+    """True when ``SKIP_RESEARCH`` is truthy (disables the researcher agent)."""
+    raw = os.environ.get("SKIP_RESEARCH", "").strip().lower()
+    return raw in _TRUTHY
+
+
+def research_domain_allowlist() -> tuple[str, ...]:
+    """
+    Allowlist of domain suffixes for citations from the researcher.
+
+    Reads ``RESEARCH_DOMAIN_ALLOWLIST`` (comma-separated). Each entry is
+    matched as a case-insensitive suffix of the citation hostname; entries
+    starting with a dot match any subdomain (``.edu`` matches ``mit.edu``).
+    Empty / unset value falls back to a curated default list of academic and
+    official-vendor domains.
+    """
+    raw = os.environ.get("RESEARCH_DOMAIN_ALLOWLIST", "").strip()
+    if not raw:
+        return _DEFAULT_RESEARCH_DOMAIN_ALLOWLIST
+    parts = tuple(p.strip().lower() for p in raw.split(",") if p.strip())
+    return parts or _DEFAULT_RESEARCH_DOMAIN_ALLOWLIST
+
+
+def log_file_path() -> Path | None:
+    """Optional absolute path for file logging; ``None`` if ``LOG_FILE_PATH`` is empty."""
+    raw = os.environ.get("LOG_FILE_PATH", "").strip()
+    if not raw:
+        return None
+    return Path(raw).expanduser().resolve()
+
+
+def log_level() -> int:
+    """Numeric logging level from ``LOG_LEVEL`` (defaults to ``logging.INFO``)."""
+    raw = os.environ.get("LOG_LEVEL", "INFO").strip().upper() or "INFO"
+    level = getattr(logging, raw, None)
+    if not isinstance(level, int):
+        return logging.INFO
+    return level
+
+
+def validate_llm_api_keys_for_runtime(*, testing: bool) -> None:
+    """
+    Ensure ``OPENAI_API_KEY`` (Whisper) and ``OPENROUTER_API_KEY`` (chat) are set.
 
     Skips when ``testing`` is True (e.g. Flask TESTING or pytest).
     """
     if testing:
         return
-    key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not key:
+    if not openai_api_key():
         raise RuntimeError(
             "OPENAI_API_KEY is not set. Copy `.env.example` to `.env` and add your key."
+        )
+    if not openrouter_api_key():
+        raise RuntimeError(
+            "OPENROUTER_API_KEY is not set. Copy `.env.example` to `.env` and add your key."
         )

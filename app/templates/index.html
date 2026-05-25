@@ -99,6 +99,97 @@
     }
     .ok  { background: #d5f5e3; color: #1e8449; }
     .err { background: #fadbd8; color: #922b21; }
+
+    .research-panel {
+      margin-top: 0.75rem;
+      padding: 0.75rem 0.85rem;
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .research-panel h4 {
+      font-size: 0.85rem;
+      color: #2c3e50;
+      margin: 0;
+    }
+    .research-status-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .research-chip {
+      font-size: 0.78rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-weight: 600;
+    }
+    .research-chip-ready    { background: #d5f5e3; color: #1e8449; }
+    .research-chip-cached   { background: #d6eaf8; color: #1f618d; }
+    .research-chip-failed   { background: #fadbd8; color: #922b21; }
+    .research-chip-skipped  { background: #ecf0f1; color: #5d6d7e; }
+    .research-chip-running  { background: #fdebd0; color: #af601a; }
+    .research-counts {
+      font-size: 0.8rem;
+      color: #34495e;
+    }
+    .research-policy {
+      font-size: 0.72rem;
+      color: #7f8c8d;
+      font-style: italic;
+    }
+    .research-error {
+      font-size: 0.78rem;
+      color: #922b21;
+      background: #fdecea;
+      padding: 0.4rem 0.6rem;
+      border-radius: 6px;
+    }
+    .research-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .research-actions button {
+      padding: 0.4rem 0.85rem;
+      font-size: 0.82rem;
+    }
+    .research-details {
+      border: 1px dashed #bdc3c7;
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      background: #ffffff;
+    }
+    .research-details summary {
+      cursor: pointer;
+      font-size: 0.82rem;
+      color: #34495e;
+      font-weight: 600;
+    }
+    .research-details[open] summary { margin-bottom: 0.5rem; }
+    .research-guide-body {
+      max-height: 45vh;
+      overflow: auto;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: #2c3e50;
+      background: #fafbfc;
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .research-neutral {
+      font-size: 0.78rem;
+      color: #95a5a6;
+    }
     .audio-controles { display: flex; gap: 0.8rem; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; }
     #estado-grabacion { font-size: 0.85rem; color: #7f8c8d; }
     #estado-grabacion.grabando { color: #e74c3c; font-weight: 600; }
@@ -174,7 +265,7 @@
   <p class="eyebrow">Multimodal AI grading assistant</p>
   <h1>Grader Agent</h1>
   <p class="lede">
-    Portfolio demo for educators: upload a Markdown rubric, then grade <strong>PDF submissions</strong> (text extracted, up to four pages),
+    Portfolio demo for educators: upload a Markdown rubric, then grade <strong>PDF, Word (.docx), Python (.py) or Jupyter (.ipynb)</strong> submissions (plain text extracted from the file; PDFs up to {{ pdf_max_pages }} {% if pdf_max_pages == 1 %}page{% else %}pages{% endif %}),
     or single <strong>text / audio</strong> answers (audio is transcribed before scoring). Outputs are <strong>suggestions</strong> — teachers remain responsible for final marks and fairness.
   </p>
 </header>
@@ -183,7 +274,7 @@
 <div class="card">
   <h2>1. Rúbrica y entregable del alumno</h2>
   <p style="font-size:0.88rem;color:#6c757d;margin-bottom:1rem;">
-    Cargá la rúbrica (.md) y el PDF del estudiante. La opción principal es evaluar el entregable completo según cada criterio de la rúbrica.
+    Cargá la rúbrica (.md) y el entregable del estudiante (PDF, .docx, .py o .ipynb). Se evalúa el texto/código extraído según cada criterio de la rúbrica.
   </p>
 
   <div class="rubric-entregable-grid">
@@ -194,12 +285,32 @@
       <input type="file" id="archivo-rubrica" accept=".md,.json" aria-describedby="hint-rubrica">
       <button type="button" class="btn-primary" onclick="cargarRubrica()">Cargar rúbrica</button>
       <div id="estado-rubrica" class="err">Sin rúbrica cargada</div>
+
+      <section class="research-panel" aria-labelledby="research-title" id="research-panel">
+        <h4 id="research-title">Investigación de la rúbrica</h4>
+        <div class="research-status-row" aria-live="polite">
+          <span id="research-chip" class="research-chip research-chip-skipped">Sin investigación</span>
+          <span id="research-counts" class="research-counts" hidden></span>
+        </div>
+        <p id="research-neutral" class="research-neutral">Cargá una rúbrica para habilitar la investigación automática.</p>
+        <p id="research-error" class="research-error" hidden></p>
+        <p class="research-policy">Las citas se limitan a fuentes oficiales o académicas.</p>
+        <div class="research-actions">
+          <button type="button" class="btn-secondary" id="btn-reintentar-investigacion" onclick="reintentarInvestigacion()" disabled>
+            Reintentar investigación
+          </button>
+        </div>
+        <details class="research-details" id="research-details">
+          <summary id="research-summary">Ver guía de investigación</summary>
+          <div id="research-guide-body" class="research-guide-body">Cargá una rúbrica para generar la guía.</div>
+        </details>
+      </section>
     </div>
     <div class="zona">
       <h3>Entregable del alumno</h3>
-      <p class="hint">PDF (máx. 4 págs.) o JSON del estudiante. Se evalúa el texto del archivo.</p>
+      <p class="hint">PDF (máx. {{ pdf_max_pages }} {% if pdf_max_pages == 1 %}página{% else %}páginas{% endif %}), Word (.docx), archivo Python o notebook Jupyter. Se evalúa el texto o celdas de código extraídas.</p>
       <input type="text" id="nombre-alumno-entregable" placeholder="Nombre del alumno">
-      <input type="file" id="archivo-pdf-entregable" accept=".pdf,.json">
+      <input type="file" id="archivo-entregable-multimodal" accept=".pdf,.docx,.py,.ipynb,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
       <button type="button" class="btn-success" onclick="calificarEntregable()">Evaluar entregable con la rúbrica</button>
       <span class="spinner" id="spinner-entregable">⏳ Extrayendo y calificando...</span>
     </div>
@@ -215,10 +326,10 @@
     <p style="font-size:0.85rem;color:#6c757d;margin-bottom:0.75rem;line-height:1.4;">
       Elegí la carpeta que contiene las entregas (o una carpeta padre, p. ej. la de la tarea): se detecta en la ruta cada
       <code style="font-size:0.8rem;">NOMBRE_######_assignsubmission_file</code>
-      y dentro debe haber un PDF (ej. «solución tinyML.pdf»). Chrome o Edge recomendados.
-      Si hay más de un PDF en la carpeta del alumno, completá el filtro por texto en el nombre del archivo.
+      y dentro debe haber <strong>un solo</strong> entregable admitido: PDF, <code>.docx</code>, <code>.py</code> o <code>.ipynb</code> (ej. «tarea.ipynb»). Chrome o Edge recomendados.
+      Si hay más de un archivo admitido en la carpeta del alumno, completá el filtro por texto en el nombre del archivo.
     </p>
-    <input type="text" id="filtro-nombre-pdf" placeholder="Contiene en el nombre del archivo (ej. tinyML) — opcional si hay un solo PDF">
+    <input type="text" id="filtro-nombre-pdf" placeholder="Contiene en el nombre del archivo (ej. tinyML) — opcional si hay un solo entregable">
     <input type="file" id="archivo-carpeta-entregas" webkitdirectory multiple style="margin-bottom:0.6rem;">
     <div style="margin-bottom:0.75rem;">
       <button type="button" class="btn-success" id="btn-carpeta-entregas" onclick="calificarCarpetaEntregables()">
@@ -315,23 +426,180 @@
     if (data.ok) {
       estado.textContent = "✅ " + archivo.name + " cargada";
       estado.className = "ok";
+      pintarResearch(data.research || null, { invalidarGuia: true });
     } else {
       estado.textContent = "❌ " + (data.error || "Error");
       estado.className = "err";
     }
   }
 
+  let _researchHash = "";
+  let _researchGuiaCargada = false;
+
+  function _setHidden(el, hidden) {
+    if (!el) return;
+    if (hidden) { el.setAttribute("hidden", "hidden"); }
+    else { el.removeAttribute("hidden"); }
+  }
+
+  function pintarResearch(research, opts) {
+    opts = opts || {};
+    const chip = document.getElementById("research-chip");
+    const counts = document.getElementById("research-counts");
+    const neutral = document.getElementById("research-neutral");
+    const errorEl = document.getElementById("research-error");
+    const btn = document.getElementById("btn-reintentar-investigacion");
+    const guideBody = document.getElementById("research-guide-body");
+
+    chip.classList.remove(
+      "research-chip-ready",
+      "research-chip-cached",
+      "research-chip-failed",
+      "research-chip-skipped",
+      "research-chip-running"
+    );
+
+    if (!research) {
+      chip.classList.add("research-chip-skipped");
+      chip.textContent = "Sin investigación";
+      counts.textContent = "";
+      _setHidden(counts, true);
+      neutral.textContent = "Cargá una rúbrica para habilitar la investigación automática.";
+      _setHidden(neutral, false);
+      _setHidden(errorEl, true);
+      btn.disabled = true;
+      _researchHash = "";
+      _researchGuiaCargada = false;
+      guideBody.textContent = "Cargá una rúbrica para generar la guía.";
+      return;
+    }
+
+    if (opts.invalidarGuia && research.hash !== _researchHash) {
+      _researchGuiaCargada = false;
+      guideBody.textContent = "Pulsá «Ver guía de investigación» para cargarla.";
+      const det = document.getElementById("research-details");
+      if (det && det.open) det.open = false;
+    }
+    _researchHash = research.hash || "";
+
+    const status = research.status || "skipped";
+    if (status === "ready") {
+      chip.classList.add("research-chip-ready");
+      chip.textContent = "Lista";
+    } else if (status === "cached") {
+      chip.classList.add("research-chip-cached");
+      chip.textContent = "Recuperada de caché";
+    } else if (status === "failed") {
+      chip.classList.add("research-chip-failed");
+      chip.textContent = "Falló";
+    } else {
+      chip.classList.add("research-chip-skipped");
+      chip.textContent = "Desactivada";
+    }
+
+    if (status === "ready" || status === "cached") {
+      const t = research.n_temas || 0;
+      const c = research.n_citas || 0;
+      counts.textContent = t + " " + (t === 1 ? "tema" : "temas") + " · " + c + " " + (c === 1 ? "cita" : "citas");
+      _setHidden(counts, false);
+      _setHidden(neutral, true);
+      _setHidden(errorEl, true);
+      btn.disabled = false;
+    } else if (status === "failed") {
+      _setHidden(counts, true);
+      _setHidden(neutral, true);
+      errorEl.textContent = research.error || "No se pudo obtener la guía de investigación.";
+      _setHidden(errorEl, false);
+      btn.disabled = false;
+    } else { // skipped
+      _setHidden(counts, true);
+      neutral.textContent = "La investigación automática está desactivada en este entorno.";
+      _setHidden(neutral, false);
+      _setHidden(errorEl, true);
+      btn.disabled = true;
+    }
+  }
+
+  async function reintentarInvestigacion() {
+    const btn = document.getElementById("btn-reintentar-investigacion");
+    const chip = document.getElementById("research-chip");
+    btn.disabled = true;
+    btn.setAttribute("aria-busy", "true");
+    const previa = chip.className;
+    chip.className = "research-chip research-chip-running";
+    chip.textContent = "En curso…";
+    try {
+      const res = await fetch("/investigar-rubrica", { method: "POST" });
+      const data = await res.json();
+      pintarResearch(data.research || null, { invalidarGuia: true });
+      _researchGuiaCargada = false;
+    } catch (e) {
+      pintarResearch(
+        { hash: _researchHash, status: "failed", n_temas: 0, n_citas: 0, error: String(e && e.message ? e.message : e) },
+        { invalidarGuia: false }
+      );
+    } finally {
+      btn.removeAttribute("aria-busy");
+      void previa;
+    }
+  }
+
+  async function cargarGuiaInvestigacion() {
+    if (_researchGuiaCargada) return;
+    const body = document.getElementById("research-guide-body");
+    body.textContent = "Cargando guía…";
+    try {
+      const res = await fetch("/investigacion-rubrica");
+      if (res.status === 404) {
+        body.textContent = "Todavía no hay guía cacheada. Reintentá la investigación.";
+        return;
+      }
+      if (!res.ok) {
+        body.textContent = "No se pudo cargar la guía (HTTP " + res.status + ").";
+        return;
+      }
+      const data = await res.json();
+      const guide = (data && data.guide) ? data.guide : "";
+      if (!guide.trim()) {
+        body.textContent = "La guía está vacía.";
+        return;
+      }
+      body.textContent = guide;
+      _researchGuiaCargada = true;
+    } catch (e) {
+      body.textContent = "Error de red al cargar la guía: " + (e && e.message ? e.message : e);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const det = document.getElementById("research-details");
+    if (det) {
+      det.addEventListener("toggle", function () {
+        if (det.open) cargarGuiaInvestigacion();
+      });
+    }
+  });
+
+  function esExtensionEntregableMultimodal(name) {
+    var n = (name || "").toLowerCase();
+    return n.endsWith(".pdf") || n.endsWith(".docx") || n.endsWith(".py") || n.endsWith(".ipynb");
+  }
+
   async function calificarEntregable() {
     const alumno = document.getElementById("nombre-alumno-entregable").value.trim();
-    const archivo = document.getElementById("archivo-pdf-entregable").files[0];
+    const archivo = document.getElementById("archivo-entregable-multimodal").files[0];
     if (!alumno) { alert("Escribí el nombre del alumno"); return; }
-    if (!archivo) { alert("Seleccioná un archivo PDF"); return; }
+    if (!archivo) { alert("Seleccioná un archivo (.pdf, .docx, .py o .ipynb)"); return; }
+    if (!esExtensionEntregableMultimodal(archivo.name)) {
+      alert("Solo se aceptan archivos .pdf, .docx, .py o .ipynb");
+      return;
+    }
 
     document.getElementById("spinner-entregable").style.display = "inline";
     document.getElementById("resultado-entregable").style.display = "none";
 
     const form = new FormData();
-    form.append("pdf", archivo);
+    form.append("entregable", archivo);
     form.append("alumno", alumno);
 
     const res = await fetch("/calificar-entregable", { method: "POST", body: form });
@@ -410,33 +678,30 @@
     for (var i = 0; i < keys.length; i++) {
       var folder = keys[i];
       var files = byFolder[folder];
-      var pdfs = files.filter(function (f) {
-        var n = f.name.toLowerCase();
-        return n.endsWith(".pdf") || n.endsWith(".json");
-      });
+      var entregables = files.filter(function (f) { return esExtensionEntregableMultimodal(f.name); });
       var chosen;
       if (filtroN) {
-        chosen = pdfs.filter(function (f) {
+        chosen = entregables.filter(function (f) {
           return normalizarNombreArchivo(f.name).indexOf(filtroN) !== -1;
         });
       } else {
-        if (pdfs.length !== 1) {
+        if (entregables.length !== 1) {
           errs.push({
             carpeta: folder,
-            msg: pdfs.length === 0
-              ? "No hay ningún PDF ni JSON en la carpeta."
-              : "Hay varios archivos PDF/JSON: indicá un texto que filtre el archivo (ej. tinyML)."
+            msg: entregables.length === 0
+              ? "No hay ningún entregable admitido (.pdf, .docx, .py o .ipynb) en la carpeta."
+              : "Hay varios entregables admitidos: usá el filtro por nombre (ej. solucion)."
           });
           continue;
         }
-        chosen = pdfs;
+        chosen = entregables;
       }
       if (chosen.length !== 1) {
         errs.push({
           carpeta: folder,
           msg: chosen.length === 0
-            ? "Ningún archivo coincide con el filtro por nombre."
-            : "Más de un archivo coincide con el filtro; acotá más el texto."
+            ? "Ningún entregable coincide con el filtro por nombre."
+            : "Más de un entregable coincide con el filtro; acotá más el texto."
         });
         continue;
       }
@@ -482,7 +747,7 @@
     var form = new FormData();
     for (var j = 0; j < built.ok.length; j++) {
       var row = built.ok[j];
-      form.append("pdf", row.file, row.archivo_entregable);
+      form.append("entregable", row.file, row.archivo_pdf);
       form.append("alumno", row.alumno);
       form.append("nombre_completo", row.nombre_completo);
       form.append("id_estudiante", row.id_estudiante);
@@ -609,7 +874,7 @@
   }
 
   function esResultadoPorCriterios(r) {
-    return r.tipo === "entregable_pdf" || r.tipo === "informe_pdf" || r.tipo === "entregable";
+    return r.tipo === "entregable_pdf" || r.tipo === "entregable_codigo" || r.tipo === "informe_pdf";
   }
 
   async function cargarResultados() {
@@ -629,7 +894,7 @@
       if (!totales[r.alumno]) totales[r.alumno] = { obtenido: 0, maximo: 0 };
 
       if (esResultadoPorCriterios(r)) {
-        var labelPdf = r.tipo === "entregable_pdf" ? "Entregable" : "PDF";
+        var labelPdf = r.tipo === "entregable_codigo" ? "Código" : (r.tipo === "entregable_pdf" ? "Entregable" : "PDF");
         (r.criterios || []).forEach(function (c) {
           totales[r.alumno].obtenido += c.puntaje_obtenido;
           totales[r.alumno].maximo += c.puntaje_maximo;

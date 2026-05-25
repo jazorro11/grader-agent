@@ -1,4 +1,12 @@
+---
+version: "1.0.0"
+date: "2026-04-22"
+changelog: "Archivo de referencia; no referenciado por prompts_loader en esta versión."
+---
+
 ## Criterio sobre entregable (texto del PDF)
+
+> Nota: el pipeline actual separa puntaje y retro. Este prompt sirve como referencia de una llamada combinada.
 
 Entrada: rúbrica Markdown, texto completo del entregable, criterio a evaluar en esta llamada.
 
