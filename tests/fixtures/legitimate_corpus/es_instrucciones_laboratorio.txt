@@ -1,0 +1,1 @@
+Informe de laboratorio: seguí las instrucciones del laboratorio para el armado del circuito. El sistema de medición registró valores coherentes con el modelo teórico.

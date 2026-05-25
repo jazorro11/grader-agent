@@ -1,4 +1,12 @@
+---
+version: "1.0.0"
+date: "2026-04-22"
+changelog: "Archivo de referencia; no referenciado por prompts_loader en esta versión."
+---
+
 ## Ítem de parcial (texto o transcripción)
+
+> Nota: el pipeline actual usa `texto_puntaje_item` + `texto_retro_item` por separado. Conservamos este texto por si se recompone una llamada única.
 
 Entrada: rúbrica Markdown y respuesta del alumno al ítem o pregunta que indica el docente.
 

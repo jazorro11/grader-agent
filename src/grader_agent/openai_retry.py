@@ -6,7 +6,7 @@ import time
 from collections.abc import Callable
 from typing import TypeVar
 
-from openai import APIStatusError, RateLimitError
+from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 
 T = TypeVar("T")
 
@@ -67,7 +67,61 @@ def _max_retries_from_env() -> int:
     return max(0, min(n, _MAX_RETRY_ATTEMPTS_CAP))
 
 
-def with_openai_rate_limit_retry(operation: Callable[[], T], *, max_retries: int | None = None) -> T:
+def is_transient_api_error(exc: BaseException) -> bool:
+    """
+    True if the exception is worth retrying (429 except billing, 5xx, timeouts, connection).
+
+    Permanent client errors (401, 403) are not retried.
+    """
+    if isinstance(exc, (APITimeoutError, APIConnectionError)):
+        return True
+    if isinstance(exc, RateLimitError):
+        return not _is_insufficient_quota(exc)
+    if isinstance(exc, APIStatusError):
+        code = exc.status_code
+        if code in (401, 403):
+            return False
+        if code in (429, 500, 502, 503):
+            return True
+    return False
+
+
+def _transient_backoff_seconds(attempt: int, exc: BaseException) -> float:
+    if isinstance(exc, RateLimitError):
+        return _retry_delay_seconds(attempt, exc)
+    return min(0.5 * (2 ** min(attempt, 8)), _MAX_RETRY_DELAY_S)
+
+
+def with_transient_api_retry(
+    operation: Callable[[], T],
+    *,
+    max_attempts: int = 3,
+) -> T:
+    """
+    Retry ``operation`` on transient API failures (429, 500, 502, 503, timeouts).
+
+    Uses at most ``max_attempts`` attempts total. No retry on 401/403 or
+    ``insufficient_quota`` rate-limit errors.
+    """
+    attempts = max(1, min(max_attempts, _MAX_RETRY_ATTEMPTS_CAP))
+    last: BaseException | None = None
+    for attempt in range(attempts):
+        try:
+            return operation()
+        except Exception as e:
+            last = e
+            if not is_transient_api_error(e):
+                raise
+            if attempt >= attempts - 1:
+                raise
+            time.sleep(_transient_backoff_seconds(attempt, e))
+    assert last is not None
+    raise last
+
+
+def with_openai_rate_limit_retry(
+    operation: Callable[[], T], *, max_retries: int | None = None
+) -> T:
     """
     Ejecuta ``operation`` reintentando solo ante RateLimitError (429) por TPM/RPM,
     no ante ``insufficient_quota`` (facturación).

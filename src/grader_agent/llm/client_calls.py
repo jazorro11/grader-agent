@@ -5,8 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from grader_agent.grading_config import CompletionKind, chat_completion_limit_kwargs
-from grader_agent.openai_retry import with_openai_rate_limit_retry
-from grader_agent.settings import chat_model
+from grader_agent.openai_retry import with_transient_api_retry
 
 if TYPE_CHECKING:
     from openai import OpenAI
@@ -15,6 +14,7 @@ if TYPE_CHECKING:
 def chat_completion_json_content(
     client: OpenAI,
     *,
+    model: str,
     system: str,
     user: str,
     temperature: float,
@@ -26,9 +26,9 @@ def chat_completion_json_content(
     Raises:
         ValueError: if the model returns empty or non-string content.
     """
-    response = with_openai_rate_limit_retry(
+    response = with_transient_api_retry(
         lambda: client.chat.completions.create(
-            model=chat_model(),
+            model=model,
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
@@ -36,7 +36,8 @@ def chat_completion_json_content(
             temperature=temperature,
             response_format={"type": "json_object"},
             **chat_completion_limit_kwargs(kind=kind),
-        )
+        ),
+        max_attempts=3,
     )
     if not response.choices:
         raise ValueError(

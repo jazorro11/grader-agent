@@ -10,9 +10,9 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.mark.skipif(
-    not os.environ.get("OPENAI_API_KEY", "").strip()
-    or os.environ.get("OPENAI_API_KEY", "").startswith("sk-test"),
-    reason="Set a real OPENAI_API_KEY to run integration tests",
+    not os.environ.get("OPENROUTER_API_KEY", "").strip()
+    or os.environ.get("OPENROUTER_API_KEY", "").startswith("sk-test"),
+    reason="Set a real OPENROUTER_API_KEY to run integration tests",
 )
 def test_smoke_calificar_respuesta_real_api():
     from grader_agent.grading.text import calificar_respuesta

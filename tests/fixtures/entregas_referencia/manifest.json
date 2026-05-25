@@ -1,0 +1,40 @@
+{
+  "pregunta": "Ítem 1",
+  "entregas": [
+    {
+      "id": "vacia",
+      "archivo": "respuesta_vacia.txt",
+      "expected_min": 0.0,
+      "expected_max": 2.5,
+      "notas": "Sin contenido sustantivo; debería caer en Nivel 0–1."
+    },
+    {
+      "id": "errores_graves",
+      "archivo": "respuesta_errores_graves.txt",
+      "expected_min": 0.0,
+      "expected_max": 4.0,
+      "notas": "Mezcla de términos sin coherencia; Nivel 1–2."
+    },
+    {
+      "id": "parcial",
+      "archivo": "respuesta_parcial.txt",
+      "expected_min": 3.5,
+      "expected_max": 6.5,
+      "notas": "Definición incompleta; Nivel 2±1."
+    },
+    {
+      "id": "buena",
+      "archivo": "respuesta_buena.txt",
+      "expected_min": 6.0,
+      "expected_max": 9.0,
+      "notas": "Definición correcta + justificación razonable; Nivel 3–4."
+    },
+    {
+      "id": "excelente",
+      "archivo": "respuesta_excelente.txt",
+      "expected_min": 8.0,
+      "expected_max": 10.0,
+      "notas": "Definición + ejemplo/consecuencia; Nivel 4 (o alto 3)."
+    }
+  ]
+}

@@ -11,6 +11,8 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
+from grader_agent.prompt_front_matter import strip_yaml_front_matter
+
 _PKG_DIR = Path(__file__).resolve().parent
 _DEFAULT_PROMPTS_DIR = _PKG_DIR / "prompts"
 
@@ -28,7 +30,8 @@ def _prompts_root() -> str:
 @lru_cache(maxsize=64)
 def _read_cached(root: str, name: str) -> str:
     path = Path(root) / name
-    return path.read_text(encoding="utf-8").strip()
+    raw = path.read_text(encoding="utf-8")
+    return strip_yaml_front_matter(raw).strip()
 
 
 def _read_relative(name: str) -> str:
@@ -80,3 +83,13 @@ def system_prompt_texto_puntaje_item() -> str:
 
 def system_prompt_texto_retro_item() -> str:
     return _merge_retro_only("texto_retro_item.md")
+
+
+def system_prompt_validacion_capa_b() -> str:
+    """System prompt para la capa B de validación de contenido (JSON de veredicto)."""
+    return _read_relative("validacion_capa_b.md")
+
+
+def system_prompt_investigador_rubrica() -> str:
+    """System prompt for the rubric researcher agent (citation-bound JSON output)."""
+    return _read_relative("investigador_rubrica.md")
