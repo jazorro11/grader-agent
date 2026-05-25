@@ -218,3 +218,18 @@ def build_code_deliverable_grading_request(
         student_name=student_name.strip() or "Alumno",
         rubric_content=rubric,
     )
+
+
+def build_plain_text_grading_request(
+    *,
+    rubric: str,
+    student_name: str,
+    file_path: str,
+) -> GradingRequest:
+    """Build a ``PLAIN_TEXT_DELIVERABLE`` request (``.txt`` / ``.json``) whose ``content`` is the file path."""
+    return GradingRequest(
+        delivery_type=DeliveryType.PLAIN_TEXT_DELIVERABLE,
+        content=file_path.strip(),
+        student_name=student_name.strip() or "Alumno",
+        rubric_content=rubric,
+    )
