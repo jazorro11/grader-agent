@@ -204,12 +204,13 @@ def test_calificar_entregable_sin_rubrica_devuelve_400(app_client):
     assert "rúbrica" in rv.get_json()["error"].lower()
 
 
+@patch.object(routes_module, "extraer_texto_pdf", return_value="texto extraido del pdf")
 @patch.object(routes_module, "calificar_entregable_pdf")
-def test_calificar_entregable_camino_feliz(mock_pdf, app_client):
+def test_calificar_entregable_camino_feliz(mock_pdf, mock_extraer_pdf, app_client):
     write_rubrica_parcial(app_client["rubrics"])
     mock_pdf.return_value = {
         "alumno": "María",
-        "tipo": "entregable_pdf",
+        "tipo": "entregable",
         "criterios": [],
         "total_obtenido": 10,
         "total_maximo": 10,
@@ -226,11 +227,13 @@ def test_calificar_entregable_camino_feliz(mock_pdf, app_client):
     mock_pdf.assert_called_once()
     args, _kwargs = mock_pdf.call_args
     assert args[0]  # rubrica no vacía
+    assert args[1] == "texto extraido del pdf"
     assert args[2] == "María"
 
 
+@patch.object(routes_module, "extraer_texto_pdf", return_value="texto")
 @patch.object(routes_module, "calificar_entregable_pdf")
-def test_calificar_entregable_valueerror_devuelve_400(mock_pdf, app_client):
+def test_calificar_entregable_valueerror_devuelve_400(mock_pdf, mock_extraer_pdf, app_client):
     write_rubrica_parcial(app_client["rubrics"])
     mock_pdf.side_effect = ValueError("PDF demasiado largo")
     rv = app_client["client"].post(
@@ -243,6 +246,46 @@ def test_calificar_entregable_valueerror_devuelve_400(mock_pdf, app_client):
     )
     assert rv.status_code == 400
     assert rv.get_json()["error"] == "PDF demasiado largo"
+
+
+@patch.object(routes_module, "extraer_texto_json", return_value="contenido json serializado")
+@patch.object(routes_module, "calificar_entregable_pdf")
+def test_calificar_entregable_json_camino_feliz(mock_pdf, mock_extraer_json, app_client):
+    write_rubrica_parcial(app_client["rubrics"])
+    mock_pdf.return_value = {
+        "alumno": "Luis",
+        "tipo": "entregable",
+        "criterios": [],
+        "total_obtenido": 5,
+        "total_maximo": 10,
+    }
+    rv = app_client["client"].post(
+        "/calificar-entregable",
+        data={
+            "alumno": "Luis",
+            "pdf": (BytesIO(b'{"respuesta": "algo"}'), "entrega.json"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert rv.status_code == 200
+    mock_extraer_json.assert_called_once()
+    mock_pdf.assert_called_once()
+    args, _kwargs = mock_pdf.call_args
+    assert args[1] == "contenido json serializado"
+
+
+def test_calificar_entregable_extension_no_soportada_devuelve_400(app_client):
+    write_rubrica_parcial(app_client["rubrics"])
+    rv = app_client["client"].post(
+        "/calificar-entregable",
+        data={
+            "alumno": "X",
+            "pdf": (BytesIO(b"data"), "entrega.txt"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert rv.status_code == 400
+    assert "no soportado" in rv.get_json()["error"].lower()
 
 
 def test_resultados_vacio_si_no_hay_archivo(app_client):
@@ -321,16 +364,17 @@ def test_calificar_carpeta_sin_criterios_en_rubrica_devuelve_400(mock_meta, app_
     mock_meta.assert_called_once()
 
 
+@patch.object(routes_module, "extraer_texto_pdf", return_value="texto")
 @patch.object(routes_module, "calificar_entregable_pdf")
 @patch.object(routes_module, "metadatos_criterios_desde_rubrica")
 def test_calificar_carpeta_valueerror_en_un_pdf_deja_resto_ok(
-    mock_meta, mock_pdf, app_client
+    mock_meta, mock_pdf, mock_extraer_pdf, app_client
 ):
     write_rubrica_parcial(app_client["rubrics"])
     mock_meta.return_value = [{"criterio": "C1", "puntaje_maximo": 2}]
     fila_ok = {
         "alumno": "BOB",
-        "tipo": "entregable_pdf",
+        "tipo": "entregable",
         "criterios": [
             {
                 "criterio": "C1",
@@ -366,14 +410,15 @@ def test_calificar_carpeta_valueerror_en_un_pdf_deja_resto_ok(
     assert "pdf roto" in body["errores"][0]["error"]
 
 
+@patch.object(routes_module, "extraer_texto_pdf", return_value="texto extraido")
 @patch.object(routes_module, "calificar_entregable_pdf")
 @patch.object(routes_module, "metadatos_criterios_desde_rubrica")
-def test_calificar_carpeta_camino_feliz(mock_meta, mock_pdf, app_client):
+def test_calificar_carpeta_camino_feliz(mock_meta, mock_pdf, mock_extraer_pdf, app_client):
     write_rubrica_parcial(app_client["rubrics"])
     mock_meta.return_value = [{"criterio": "Criterio uno", "puntaje_maximo": 10}]
     fila = {
         "alumno": "ANA (111111)",
-        "tipo": "entregable_pdf",
+        "tipo": "entregable",
         "criterios": [
             {
                 "criterio": "Criterio uno",
@@ -391,13 +436,13 @@ def test_calificar_carpeta_camino_feliz(mock_meta, mock_pdf, app_client):
     md.add("nombre_completo", "ANA")
     md.add("id_estudiante", "111111")
     md.add("carpeta_origen", "ANA_111111_assignsubmission_file")
-    md.add("archivo_pdf", "sol.pdf")
+    md.add("archivo_entregable", "sol.pdf")
     md.add("pdf", (BytesIO(b"%PDF-1"), "sol.pdf"))
     md.add("alumno", "BOB (222222)")
     md.add("nombre_completo", "BOB")
     md.add("id_estudiante", "222222")
     md.add("carpeta_origen", "BOB_222222_assignsubmission_file")
-    md.add("archivo_pdf", "t.pdf")
+    md.add("archivo_entregable", "t.pdf")
     md.add("pdf", (BytesIO(b"%PDF-2"), "t.pdf"))
     rv = app_client["client"].post(
         "/calificar-carpeta-entregables",
