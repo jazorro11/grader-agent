@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 
 import fitz  # pymupdf
@@ -49,6 +50,25 @@ def extraer_texto_pdf(ruta_pdf: str) -> str:
         return texto.strip()
     finally:
         doc.close()
+
+
+def extraer_texto_json(ruta_json: str) -> str:
+    """
+    Read a JSON submission file and serialize it to indented plain text.
+
+    Raises:
+        ValueError: if the file is not valid JSON or contains no evaluable content.
+    """
+    try:
+        with open(ruta_json, encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
+        raise ValueError(
+            "El archivo no es JSON válido. Verificá que el entregable esté bien formado."
+        ) from exc
+    if not data:
+        raise ValueError("El JSON no contiene contenido evaluable.")
+    return json.dumps(data, ensure_ascii=False, indent=2)
 
 
 def _parse_metadatos_criterios_payload(data: dict) -> list[dict]:
