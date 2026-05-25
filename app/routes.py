@@ -225,7 +225,7 @@ def register_routes(app: Flask) -> None:
         nombres_completos = request.form.getlist("nombre_completo")
         ids = request.form.getlist("id_estudiante")
         carpetas = request.form.getlist("carpeta_origen")
-        archivos = request.form.getlist("archivo_pdf")
+        archivos = request.form.getlist("archivo_entregable")
 
         if not pdfs:
             return jsonify({"error": "No se recibieron archivos PDF"}), 400
@@ -291,14 +291,29 @@ def register_routes(app: Flask) -> None:
             if not nombre_completo:
                 nombre_completo = alumno
 
+            ext = Path(pdf.filename or "").suffix.lower()
+            if ext not in (".pdf", ".json"):
+                errores.append(
+                    {
+                        "alumno": alumno,
+                        "carpeta_origen": carpeta,
+                        "error": "Tipo de archivo no soportado. Usá .pdf o .json",
+                    }
+                )
+                continue
+
             resultado = None
-            fd, ruta_tmp = tempfile.mkstemp(suffix=".pdf")
+            fd, ruta_tmp = tempfile.mkstemp(suffix=ext)
             os.close(fd)
             try:
                 pdf.save(ruta_tmp)
                 try:
+                    if ext == ".pdf":
+                        texto = extraer_texto_pdf(ruta_tmp)
+                    else:
+                        texto = extraer_texto_json(ruta_tmp)
                     resultado = calificar_entregable_pdf(
-                        rubrica, ruta_tmp, alumno, metadatos_criterios=metadatos
+                        rubrica, texto, alumno, metadatos_criterios=metadatos
                     )
                 except ValueError as e:
                     errores.append(
@@ -318,7 +333,7 @@ def register_routes(app: Flask) -> None:
                     )
                 except Exception:
                     _logger.exception(
-                        "Unexpected error while grading PDF for alumno=%s", alumno
+                        "Unexpected error while grading for alumno=%s", alumno
                     )
                     errores.append(
                         {
