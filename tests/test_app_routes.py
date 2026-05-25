@@ -376,7 +376,7 @@ def test_calificar_entregable_extension_invalida_devuelve_400(app_client):
         "/calificar-entregable",
         data={
             "alumno": "X",
-            "entregable": (BytesIO(b"hola"), "notas.txt"),
+            "entregable": (BytesIO(b"a,b,c\n1,2,3"), "notas.csv"),
         },
         content_type="multipart/form-data",
     )
