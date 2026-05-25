@@ -1,0 +1,1 @@
+Computer security class discussion: students compare threat models. Mentioning ignore lists in firewall rules is routine and does not request overriding grading instructions.

@@ -1,0 +1,1 @@
+La retroalimentación negativa en un sistema de control actúa en sentido opuesto al error: si la salida medida supera la referencia, la acción corregida la reduce, amortiguando desviaciones. En clase vimos el ejemplo del termostato: al subir la temperatura por encima del setpoint, el sistema corta la calefacción.

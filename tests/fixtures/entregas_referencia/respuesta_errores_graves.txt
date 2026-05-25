@@ -1,0 +1,1 @@
+La retroalimentación negativa es cuando el sistema siempre suma energía para amplificar errores y por eso el controlador ignora la referencia. En laboratorio vimos que conviene usar solo ganancia positiva infinita para estabilizar.

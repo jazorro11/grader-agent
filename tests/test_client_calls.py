@@ -5,7 +5,7 @@ import pytest
 from grader_agent.llm import client_calls
 
 
-@patch.object(client_calls, "with_openai_rate_limit_retry")
+@patch.object(client_calls, "with_transient_api_retry")
 def test_chat_completion_json_content_raises_on_empty_message(mock_retry):
     mock_client = MagicMock()
     resp = MagicMock()
@@ -14,6 +14,7 @@ def test_chat_completion_json_content_raises_on_empty_message(mock_retry):
     with pytest.raises(ValueError, match="empty message"):
         client_calls.chat_completion_json_content(
             mock_client,
+            model="gpt-4o-mini",
             system="s",
             user="u",
             temperature=0,
@@ -21,7 +22,7 @@ def test_chat_completion_json_content_raises_on_empty_message(mock_retry):
         )
 
 
-@patch.object(client_calls, "with_openai_rate_limit_retry")
+@patch.object(client_calls, "with_transient_api_retry")
 def test_chat_completion_json_content_raises_on_no_choices(mock_retry):
     mock_client = MagicMock()
     resp = MagicMock()
@@ -30,6 +31,7 @@ def test_chat_completion_json_content_raises_on_no_choices(mock_retry):
     with pytest.raises(ValueError, match="no choices"):
         client_calls.chat_completion_json_content(
             mock_client,
+            model="gpt-4o-mini",
             system="s",
             user="u",
             temperature=0,

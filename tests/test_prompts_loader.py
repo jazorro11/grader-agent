@@ -7,6 +7,7 @@ from grader_agent.prompts_loader import (
     system_prompt_texto_escala_item,
     system_prompt_texto_puntaje_item,
     system_prompt_texto_retro_item,
+    system_prompt_validacion_capa_b,
 )
 
 
@@ -16,6 +17,8 @@ def _assert_prompt_incluye_base_evaluador_puntaje(text: str) -> None:
     assert "evaluador" in low and "estricto" in low
     assert "colombia" in low and "sin voseo" in low
     assert "dudas" in low and "inferior" in low
+    assert "no confiable" in low
+    assert not text.lstrip().startswith("---")
 
 
 def test_system_prompt_pdf_puntaje_incluye_base_sin_bloque_retro_completo():
@@ -66,3 +69,11 @@ def test_system_prompt_texto_retro_incluye_retro_alumno():
     assert "Háblale con tú" in text
     assert "imperativo" in text.lower()
     assert '"retroalimentacion"' in text
+
+
+def test_system_prompt_validacion_capa_b_carga_y_sin_front_matter():
+    text = system_prompt_validacion_capa_b()
+    assert len(text) > 80
+    assert "veredicto" in text.lower()
+    assert "patrones_detectados" in text
+    assert not text.lstrip().startswith("---")
