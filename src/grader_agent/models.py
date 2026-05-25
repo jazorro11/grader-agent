@@ -21,6 +21,7 @@ class DeliveryType(str, Enum):
     AUDIO = "audio"
     PDF_DELIVERABLE = "pdf_deliverable"
     CODE_DELIVERABLE = "code_deliverable"
+    PLAIN_TEXT_DELIVERABLE = "plain_text_deliverable"
 
 
 @dataclass
