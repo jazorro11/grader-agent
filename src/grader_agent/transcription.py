@@ -8,9 +8,6 @@ from grader_agent.openai_client import get_openai_client
 from grader_agent.openai_retry import with_openai_rate_limit_retry
 from grader_agent.settings import transcription_language, transcription_model
 
-client = get_openai_client()
-
-
 def transcribir_audio(ruta_audio: str) -> str:
     """
     Transcribe an audio file using the configured speech model (default Whisper).
@@ -33,7 +30,7 @@ def transcribir_audio(ruta_audio: str) -> str:
 
     def _transcribe():
         with path.open("rb") as archivo:
-            return client.audio.transcriptions.create(
+            return get_openai_client().audio.transcriptions.create(
                 model=transcription_model(),
                 file=archivo,
                 language=transcription_language(),

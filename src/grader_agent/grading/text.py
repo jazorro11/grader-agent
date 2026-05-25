@@ -14,9 +14,6 @@ from grader_agent.prompts_loader import (
     system_prompt_texto_retro_item,
 )
 
-client = get_openai_client()
-
-
 def escala_item_desde_rubrica(rubrica_md: str, pregunta: str) -> dict:
     """
     Locate the rubric item and return canonical max score and optional discrete levels.
@@ -27,7 +24,7 @@ def escala_item_desde_rubrica(rubrica_md: str, pregunta: str) -> dict:
 ÍTEM (docente): {pregunta}
 """
     raw = chat_completion_json_content(
-        client,
+        get_openai_client(),
         system=system_prompt_texto_escala_item(),
         user=user_message,
         temperature=0,
@@ -88,7 +85,7 @@ MÁX canónico (techo; no reinterpretes; el sistema fija el máximo en salida): 
 """
 
     raw_p = chat_completion_json_content(
-        client,
+        get_openai_client(),
         system=system_prompt_texto_puntaje_item(),
         user=user_puntaje,
         temperature=score_temperature(),
@@ -111,7 +108,7 @@ RESPUESTA: {respuesta_alumno}
 """
 
     raw_r = chat_completion_json_content(
-        client,
+        get_openai_client(),
         system=system_prompt_texto_retro_item(),
         user=user_retro,
         temperature=retro_temperature(),

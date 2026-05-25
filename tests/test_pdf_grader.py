@@ -15,8 +15,10 @@ def test_listar_criterios_desde_rubrica_extrae_nombres():
     mock_resp = MagicMock()
     mock_resp.choices = [MagicMock(message=MagicMock(content=fake_json))]
     mock_create = MagicMock(return_value=mock_resp)
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = mock_create
 
-    with patch.object(pdf_grader.client.chat.completions, "create", mock_create):
+    with patch.object(pdf_grader, "get_openai_client", return_value=mock_client):
         out = pdf_grader.listar_criterios_desde_rubrica("# rubrica")
 
     assert out == ["Criterio A", "Criterio B"]
@@ -32,8 +34,10 @@ def test_metadatos_criterios_desde_rubrica_parsea_niveles():
     )
     mock_resp = MagicMock()
     mock_resp.choices = [MagicMock(message=MagicMock(content=fake_json))]
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = mock_resp
 
-    with patch.object(pdf_grader.client.chat.completions, "create", return_value=mock_resp):
+    with patch.object(pdf_grader, "get_openai_client", return_value=mock_client):
         meta = pdf_grader.metadatos_criterios_desde_rubrica("# r")
 
     assert len(meta) == 1
@@ -45,8 +49,10 @@ def test_metadatos_criterios_desde_rubrica_parsea_niveles():
 def test_metadatos_criterios_json_invalido_devuelve_vacio():
     mock_resp = MagicMock()
     mock_resp.choices = [MagicMock(message=MagicMock(content="no es json"))]
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = mock_resp
 
-    with patch.object(pdf_grader.client.chat.completions, "create", return_value=mock_resp):
+    with patch.object(pdf_grader, "get_openai_client", return_value=mock_client):
         assert pdf_grader.metadatos_criterios_desde_rubrica("x") == []
 
 
@@ -55,7 +61,10 @@ def test_metadatos_criterios_criterios_no_lista_devuelve_vacio():
     mock_resp.choices = [
         MagicMock(message=MagicMock(content='{"criterios": "mal formado"}'))
     ]
-    with patch.object(pdf_grader.client.chat.completions, "create", return_value=mock_resp):
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = mock_resp
+
+    with patch.object(pdf_grader, "get_openai_client", return_value=mock_client):
         assert pdf_grader.metadatos_criterios_desde_rubrica("# r") == []
 
 
@@ -159,24 +168,26 @@ def test_calificar_entregable_pdf_lista_criterios_vacia_valueerror(mock_meta):
     mock_meta.assert_not_called()
 
 
-@patch.object(pdf_grader.client.chat.completions, "create")
-def test_calificar_criterio_entregable_usa_maximo_canonico(mock_create, tmp_path):
+@patch.object(pdf_grader, "get_openai_client")
+def test_calificar_criterio_entregable_usa_maximo_canonico(mock_get_client, tmp_path):
     r_p = MagicMock()
     r_p.choices = [MagicMock(message=MagicMock(content='{"puntaje_obtenido": 999}'))]
     r_r = MagicMock()
     r_r.choices = [MagicMock(message=MagicMock(content='{"retroalimentacion": "ok"}'))]
-    mock_create.side_effect = [r_p, r_r]
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.side_effect = [r_p, r_r]
+    mock_get_client.return_value = mock_client
 
     out = pdf_grader.calificar_criterio_entregable("# r", "texto", "C1", 4.0)
 
     assert out["puntaje_maximo"] == 4.0
     assert out["puntaje_obtenido"] == 4.0
     assert out["retroalimentacion"] == "ok"
-    assert mock_create.call_count == 2
+    assert mock_client.chat.completions.create.call_count == 2
 
 
-@patch.object(pdf_grader.client.chat.completions, "create")
-def test_calificar_criterio_entregable_respeta_niveles_discretos(mock_create):
+@patch.object(pdf_grader, "get_openai_client")
+def test_calificar_criterio_entregable_respeta_niveles_discretos(mock_get_client):
     niveles = [
         {"etiqueta": "Bajo", "puntos": 0},
         {"etiqueta": "Alto", "puntos": 5},
@@ -185,7 +196,9 @@ def test_calificar_criterio_entregable_respeta_niveles_discretos(mock_create):
     r_p.choices = [MagicMock(message=MagicMock(content='{"puntaje_obtenido": 2}'))]
     r_r = MagicMock()
     r_r.choices = [MagicMock(message=MagicMock(content='{"retroalimentacion": "r"}'))]
-    mock_create.side_effect = [r_p, r_r]
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.side_effect = [r_p, r_r]
+    mock_get_client.return_value = mock_client
 
     out = pdf_grader.calificar_criterio_entregable(
         "# r", "texto", "C1", 5.0, niveles=niveles
