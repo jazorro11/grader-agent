@@ -61,11 +61,7 @@ def test_metadatos_criterios_criterios_no_lista_devuelve_vacio():
 
 @patch.object(pdf_grader, "calificar_criterio_entregable")
 @patch.object(pdf_grader, "metadatos_criterios_desde_rubrica")
-@patch.object(pdf_grader, "extraer_texto_pdf")
-def test_calificar_entregable_pdf_suma_criterios(
-    mock_extraer, mock_meta, mock_cal_criterio, tmp_path
-):
-    mock_extraer.return_value = "texto pdf"
+def test_calificar_entregable_pdf_suma_criterios(mock_meta, mock_cal_criterio):
     mock_meta.return_value = [
         {"criterio": "Uno", "puntaje_maximo": 5},
         {"criterio": "Dos", "puntaje_maximo": 5},
@@ -85,27 +81,21 @@ def test_calificar_entregable_pdf_suma_criterios(
         },
     ]
 
-    pdf_path = tmp_path / "t.pdf"
-    pdf_path.write_bytes(b"x")
+    resultado = pdf_grader.calificar_entregable_pdf("# r", "texto del alumno", "Ana")
 
-    resultado = pdf_grader.calificar_entregable_pdf("# r", str(pdf_path), "Ana")
-
-    assert resultado["tipo"] == "entregable_pdf"
+    assert resultado["tipo"] == "entregable"
     assert resultado["alumno"] == "Ana"
     assert resultado["total_obtenido"] == 7
     assert resultado["total_maximo"] == 10
     assert len(resultado["criterios"]) == 2
-    assert not pdf_path.exists()
     mock_meta.assert_called_once_with("# r")
 
 
 @patch.object(pdf_grader, "calificar_criterio_entregable")
 @patch.object(pdf_grader, "metadatos_criterios_desde_rubrica")
-@patch.object(pdf_grader, "extraer_texto_pdf")
 def test_calificar_entregable_pdf_criterios_precalculados_filtra_metadatos(
-    mock_extraer, mock_meta, mock_cal_criterio, tmp_path
+    mock_meta, mock_cal_criterio
 ):
-    mock_extraer.return_value = "texto pdf"
     mock_meta.return_value = [
         {"criterio": "Pre", "puntaje_maximo": 10},
         {"criterio": "Otro", "puntaje_maximo": 5},
@@ -116,11 +106,9 @@ def test_calificar_entregable_pdf_criterios_precalculados_filtra_metadatos(
         "puntaje_maximo": 10,
         "retroalimentacion": "ok",
     }
-    pdf_path = tmp_path / "t.pdf"
-    pdf_path.write_bytes(b"x")
 
     resultado = pdf_grader.calificar_entregable_pdf(
-        "# r", str(pdf_path), "Leo", criterios=["Pre"]
+        "# r", "texto del alumno", "Leo", criterios=["Pre"]
     )
 
     mock_meta.assert_called_once_with("# r")
@@ -133,9 +121,8 @@ def test_calificar_entregable_pdf_criterios_precalculados_filtra_metadatos(
 
 @patch.object(pdf_grader, "calificar_criterio_entregable")
 @patch.object(pdf_grader, "metadatos_criterios_desde_rubrica")
-@patch.object(pdf_grader, "extraer_texto_pdf", return_value="t")
 def test_calificar_entregable_pdf_metadatos_precargados_evita_reparse(
-    mock_ext, mock_meta, mock_cal, tmp_path
+    mock_meta, mock_cal
 ):
     mock_cal.return_value = {
         "criterio": "A",
@@ -143,12 +130,10 @@ def test_calificar_entregable_pdf_metadatos_precargados_evita_reparse(
         "puntaje_maximo": 2,
         "retroalimentacion": "x",
     }
-    pdf_path = tmp_path / "t.pdf"
-    pdf_path.write_bytes(b"x")
     meta = [{"criterio": "A", "puntaje_maximo": 2}]
 
     pdf_grader.calificar_entregable_pdf(
-        "# r", str(pdf_path), "N", metadatos_criterios=meta
+        "# r", "texto del alumno", "N", metadatos_criterios=meta
     )
 
     mock_meta.assert_not_called()
@@ -156,25 +141,17 @@ def test_calificar_entregable_pdf_metadatos_precargados_evita_reparse(
 
 
 @patch.object(pdf_grader, "metadatos_criterios_desde_rubrica", return_value=[])
-@patch.object(pdf_grader, "extraer_texto_pdf", return_value="t")
-def test_calificar_entregable_pdf_sin_criterios_valueerror(mock_ext, mock_list, tmp_path):
-    pdf_path = tmp_path / "t.pdf"
-    pdf_path.write_bytes(b"x")
+def test_calificar_entregable_pdf_sin_criterios_valueerror(mock_list):
     with pytest.raises(ValueError, match="criterios evaluables"):
-        pdf_grader.calificar_entregable_pdf("# r", str(pdf_path), "X")
+        pdf_grader.calificar_entregable_pdf("# r", "texto", "X")
 
 
 @patch.object(pdf_grader, "metadatos_criterios_desde_rubrica")
-@patch.object(pdf_grader, "extraer_texto_pdf", return_value="t")
-def test_calificar_entregable_pdf_lista_criterios_vacia_valueerror(
-    mock_ext, mock_meta, tmp_path
-):
-    pdf_path = tmp_path / "t.pdf"
-    pdf_path.write_bytes(b"x")
+def test_calificar_entregable_pdf_lista_criterios_vacia_valueerror(mock_meta):
     with pytest.raises(ValueError, match="criterios evaluables"):
         pdf_grader.calificar_entregable_pdf(
             "# r",
-            str(pdf_path),
+            "texto",
             "X",
             criterios=[],
             metadatos_criterios=[{"criterio": "X", "puntaje_maximo": 1}],
