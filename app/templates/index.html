@@ -308,9 +308,9 @@
     </div>
     <div class="zona">
       <h3>Entregable del alumno</h3>
-      <p class="hint">PDF (máx. {{ pdf_max_pages }} {% if pdf_max_pages == 1 %}página{% else %}páginas{% endif %}), Word (.docx), archivo Python o notebook Jupyter. Se evalúa el texto o celdas de código extraídas.</p>
+      <p class="hint">PDF (máx. {{ pdf_max_pages }} {% if pdf_max_pages == 1 %}página{% else %}páginas{% endif %}), Word (.docx), archivo Python, notebook Jupyter, texto plano (.txt) o JSON (.json). Se evalúa el texto extraído según cada criterio de la rúbrica.</p>
       <input type="text" id="nombre-alumno-entregable" placeholder="Nombre del alumno">
-      <input type="file" id="archivo-entregable-multimodal" accept=".pdf,.docx,.py,.ipynb,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+      <input type="file" id="archivo-entregable-multimodal" accept=".pdf,.docx,.py,.ipynb,.txt,.json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,application/json">
       <button type="button" class="btn-success" onclick="calificarEntregable()">Evaluar entregable con la rúbrica</button>
       <span class="spinner" id="spinner-entregable">⏳ Extrayendo y calificando...</span>
     </div>
@@ -326,7 +326,7 @@
     <p style="font-size:0.85rem;color:#6c757d;margin-bottom:0.75rem;line-height:1.4;">
       Elegí la carpeta que contiene las entregas (o una carpeta padre, p. ej. la de la tarea): se detecta en la ruta cada
       <code style="font-size:0.8rem;">NOMBRE_######_assignsubmission_file</code>
-      y dentro debe haber <strong>un solo</strong> entregable admitido: PDF, <code>.docx</code>, <code>.py</code> o <code>.ipynb</code> (ej. «tarea.ipynb»). Chrome o Edge recomendados.
+      y dentro debe haber <strong>un solo</strong> entregable admitido: PDF, <code>.docx</code>, <code>.py</code>, <code>.ipynb</code>, <code>.txt</code> o <code>.json</code>. Chrome o Edge recomendados.
       Si hay más de un archivo admitido en la carpeta del alumno, completá el filtro por texto en el nombre del archivo.
     </p>
     <input type="text" id="filtro-nombre-pdf" placeholder="Contiene en el nombre del archivo (ej. tinyML) — opcional si hay un solo entregable">
@@ -582,14 +582,14 @@
 
   function esExtensionEntregableMultimodal(name) {
     var n = (name || "").toLowerCase();
-    return n.endsWith(".pdf") || n.endsWith(".docx") || n.endsWith(".py") || n.endsWith(".ipynb");
+    return n.endsWith(".pdf") || n.endsWith(".docx") || n.endsWith(".py") || n.endsWith(".ipynb") || n.endsWith(".txt") || n.endsWith(".json");
   }
 
   async function calificarEntregable() {
     const alumno = document.getElementById("nombre-alumno-entregable").value.trim();
     const archivo = document.getElementById("archivo-entregable-multimodal").files[0];
     if (!alumno) { alert("Escribí el nombre del alumno"); return; }
-    if (!archivo) { alert("Seleccioná un archivo (.pdf, .docx, .py o .ipynb)"); return; }
+    if (!archivo) { alert("Seleccioná un archivo (.pdf, .docx, .py, .ipynb, .txt o .json)"); return; }
     if (!esExtensionEntregableMultimodal(archivo.name)) {
       alert("Solo se aceptan archivos .pdf, .docx, .py o .ipynb");
       return;
@@ -689,7 +689,7 @@
           errs.push({
             carpeta: folder,
             msg: entregables.length === 0
-              ? "No hay ningún entregable admitido (.pdf, .docx, .py o .ipynb) en la carpeta."
+              ? "No hay ningún entregable admitido (.pdf, .docx, .py, .ipynb, .txt o .json) en la carpeta."
               : "Hay varios entregables admitidos: usá el filtro por nombre (ej. solucion)."
           });
           continue;
