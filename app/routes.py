@@ -14,6 +14,8 @@ from openai import OpenAIError
 from grader_agent.export_csv import resultados_entregables_a_csv
 from grader_agent.grading.pdf import (
     calificar_entregable_pdf,
+    extraer_texto_json,
+    extraer_texto_pdf,
     metadatos_criterios_desde_rubrica,
 )
 from grader_agent.grading.text import calificar_respuesta
@@ -178,30 +180,38 @@ def register_routes(app: Flask) -> None:
 
     @app.route("/calificar-entregable", methods=["POST"])
     def calificar_entregable():
-        pdf = request.files.get("pdf")
+        archivo = request.files.get("pdf")
         nombre_alumno = request.form.get("alumno", "Alumno")
 
-        if not pdf:
-            return jsonify({"error": "No se recibió PDF"}), 400
+        if not archivo:
+            return jsonify({"error": "No se recibió archivo"}), 400
 
         rubrica = _leer_rubrica_activa()
         if not rubrica:
             return jsonify({"error": "Primero cargá una rúbrica (.md) en este bloque"}), 400
 
-        fd, ruta_pdf = tempfile.mkstemp(suffix=".pdf")
+        ext = Path(archivo.filename or "").suffix.lower()
+        if ext not in (".pdf", ".json"):
+            return jsonify({"error": "Tipo de archivo no soportado. Usá .pdf o .json"}), 400
+
+        fd, ruta_tmp = tempfile.mkstemp(suffix=ext)
         os.close(fd)
         try:
-            pdf.save(ruta_pdf)
+            archivo.save(ruta_tmp)
             try:
-                resultado = calificar_entregable_pdf(rubrica, ruta_pdf, nombre_alumno)
+                if ext == ".pdf":
+                    texto = extraer_texto_pdf(ruta_tmp)
+                else:
+                    texto = extraer_texto_json(ruta_tmp)
+                resultado = calificar_entregable_pdf(rubrica, texto, nombre_alumno)
             except ValueError as e:
                 return jsonify({"error": str(e)}), 400
             except OpenAIError as e:
                 return _api_error_response(e)
         finally:
-            if os.path.isfile(ruta_pdf):
+            if os.path.isfile(ruta_tmp):
                 try:
-                    os.remove(ruta_pdf)
+                    os.remove(ruta_tmp)
                 except OSError:
                     pass
 
@@ -215,7 +225,7 @@ def register_routes(app: Flask) -> None:
         nombres_completos = request.form.getlist("nombre_completo")
         ids = request.form.getlist("id_estudiante")
         carpetas = request.form.getlist("carpeta_origen")
-        archivos = request.form.getlist("archivo_pdf")
+        archivos = request.form.getlist("archivo_entregable")
 
         if not pdfs:
             return jsonify({"error": "No se recibieron archivos PDF"}), 400
@@ -281,14 +291,29 @@ def register_routes(app: Flask) -> None:
             if not nombre_completo:
                 nombre_completo = alumno
 
+            ext = Path(pdf.filename or "").suffix.lower()
+            if ext not in (".pdf", ".json"):
+                errores.append(
+                    {
+                        "alumno": alumno,
+                        "carpeta_origen": carpeta,
+                        "error": "Tipo de archivo no soportado. Usá .pdf o .json",
+                    }
+                )
+                continue
+
             resultado = None
-            fd, ruta_tmp = tempfile.mkstemp(suffix=".pdf")
+            fd, ruta_tmp = tempfile.mkstemp(suffix=ext)
             os.close(fd)
             try:
                 pdf.save(ruta_tmp)
                 try:
+                    if ext == ".pdf":
+                        texto = extraer_texto_pdf(ruta_tmp)
+                    else:
+                        texto = extraer_texto_json(ruta_tmp)
                     resultado = calificar_entregable_pdf(
-                        rubrica, ruta_tmp, alumno, metadatos_criterios=metadatos
+                        rubrica, texto, alumno, metadatos_criterios=metadatos
                     )
                 except ValueError as e:
                     errores.append(
@@ -308,7 +333,7 @@ def register_routes(app: Flask) -> None:
                     )
                 except Exception:
                     _logger.exception(
-                        "Unexpected error while grading PDF for alumno=%s", alumno
+                        "Unexpected error while grading for alumno=%s", alumno
                     )
                     errores.append(
                         {
