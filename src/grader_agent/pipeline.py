@@ -25,6 +25,7 @@ from grader_agent.services.grading import GradingService
 from grader_agent.services.output_validation import OutputValidationService
 from grader_agent.services.code_notebook_extraction import CodeNotebookExtractionService
 from grader_agent.services.pdf_extraction import PDFExtractionService
+from grader_agent.services.plain_text_extraction import PlainTextExtractionService
 from grader_agent.services.research import RubricResearchService
 from grader_agent.services.rubric_validation import RubricValidationService
 from grader_agent.services.transcription import TranscriptionService
@@ -174,6 +175,11 @@ def _submission_body_heading(delivery: DeliveryType, artifact_path: str) -> str:
         if low.endswith(".ipynb"):
             return "CONTENIDO EXTRAÍDO DEL NOTEBOOK (celdas de código, en orden)"
         return "CÓDIGO FUENTE DEL ARCHIVO PYTHON"
+    if delivery == DeliveryType.PLAIN_TEXT_DELIVERABLE:
+        low = (artifact_path or "").lower()
+        if low.endswith(".json"):
+            return "CONTENIDO JSON DEL ENTREGABLE"
+        return "TEXTO PLANO DEL ENTREGABLE (TXT)"
     return "TEXTO PLANO DEL ENTREGABLE (PDF)"
 
 
@@ -264,6 +270,7 @@ class GradingPipeline:
         transcription_service: TranscriptionService,
         pdf_extraction_service: PDFExtractionService,
         code_notebook_extraction_service: CodeNotebookExtractionService,
+        plain_text_extraction_service: PlainTextExtractionService,
         content_validation: ContentValidationService,
         rubric_validation: RubricValidationService,
         grading: GradingService,
@@ -275,6 +282,7 @@ class GradingPipeline:
         self._transcription = transcription_service
         self._pdf = pdf_extraction_service
         self._code_nb = code_notebook_extraction_service
+        self._plain_text = plain_text_extraction_service
         self._content = content_validation
         self._rubric = rubric_validation
         self._grading = grading
@@ -476,6 +484,13 @@ class GradingPipeline:
 
         if delivery == DeliveryType.CODE_DELIVERABLE:
             out = self._code_nb.extract(request.content.strip(), request_id=request_id)
+            if isinstance(out, ErrorResult):
+                return out
+            path = request.content.strip()
+            return out, "", path
+
+        if delivery == DeliveryType.PLAIN_TEXT_DELIVERABLE:
+            out = self._plain_text.extract(request.content.strip(), request_id=request_id)
             if isinstance(out, ErrorResult):
                 return out
             path = request.content.strip()
