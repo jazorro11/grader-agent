@@ -197,9 +197,9 @@
     </div>
     <div class="zona">
       <h3>Entregable del alumno</h3>
-      <p class="hint">PDF del estudiante (máx. 4 páginas). Se evalúa el texto extraído del archivo.</p>
+      <p class="hint">PDF (máx. 4 págs.) o JSON del estudiante. Se evalúa el texto del archivo.</p>
       <input type="text" id="nombre-alumno-entregable" placeholder="Nombre del alumno">
-      <input type="file" id="archivo-pdf-entregable" accept=".pdf">
+      <input type="file" id="archivo-pdf-entregable" accept=".pdf,.json">
       <button type="button" class="btn-success" onclick="calificarEntregable()">Evaluar entregable con la rúbrica</button>
       <span class="spinner" id="spinner-entregable">⏳ Extrayendo y calificando...</span>
     </div>
@@ -410,7 +410,10 @@
     for (var i = 0; i < keys.length; i++) {
       var folder = keys[i];
       var files = byFolder[folder];
-      var pdfs = files.filter(function (f) { return f.name.toLowerCase().endsWith(".pdf"); });
+      var pdfs = files.filter(function (f) {
+        var n = f.name.toLowerCase();
+        return n.endsWith(".pdf") || n.endsWith(".json");
+      });
       var chosen;
       if (filtroN) {
         chosen = pdfs.filter(function (f) {
@@ -421,8 +424,8 @@
           errs.push({
             carpeta: folder,
             msg: pdfs.length === 0
-              ? "No hay ningún PDF en la carpeta."
-              : "Hay varios PDFs: indicá un texto que filtre el archivo (ej. tinyML)."
+              ? "No hay ningún PDF ni JSON en la carpeta."
+              : "Hay varios archivos PDF/JSON: indicá un texto que filtre el archivo (ej. tinyML)."
           });
           continue;
         }
@@ -432,8 +435,8 @@
         errs.push({
           carpeta: folder,
           msg: chosen.length === 0
-            ? "Ningún PDF coincide con el filtro por nombre."
-            : "Más de un PDF coincide con el filtro; acotá más el texto."
+            ? "Ningún archivo coincide con el filtro por nombre."
+            : "Más de un archivo coincide con el filtro; acotá más el texto."
         });
         continue;
       }
@@ -446,7 +449,7 @@
         nombre_completo: meta.nombre_completo,
         id_estudiante: idStr,
         carpeta_origen: meta.carpeta_origen,
-        archivo_pdf: file.name,
+        archivo_entregable: file.name,
         alumno: displayAlumno
       });
     }
@@ -479,12 +482,12 @@
     var form = new FormData();
     for (var j = 0; j < built.ok.length; j++) {
       var row = built.ok[j];
-      form.append("pdf", row.file, row.archivo_pdf);
+      form.append("pdf", row.file, row.archivo_entregable);
       form.append("alumno", row.alumno);
       form.append("nombre_completo", row.nombre_completo);
       form.append("id_estudiante", row.id_estudiante);
       form.append("carpeta_origen", row.carpeta_origen);
-      form.append("archivo_pdf", row.archivo_pdf);
+      form.append("archivo_entregable", row.archivo_entregable);
     }
 
     try {
@@ -606,7 +609,7 @@
   }
 
   function esResultadoPorCriterios(r) {
-    return r.tipo === "entregable_pdf" || r.tipo === "informe_pdf";
+    return r.tipo === "entregable_pdf" || r.tipo === "informe_pdf" || r.tipo === "entregable";
   }
 
   async function cargarResultados() {
