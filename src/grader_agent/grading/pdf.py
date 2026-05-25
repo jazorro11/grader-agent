@@ -19,9 +19,6 @@ from grader_agent.prompts_loader import (
     system_prompt_pdf_retro_criterio,
 )
 
-client = get_openai_client()
-
-
 def extraer_texto_pdf(ruta_pdf: str) -> str:
     """
     Extract plain text from a PDF (max 4 pages).
@@ -116,7 +113,7 @@ def metadatos_criterios_desde_rubrica(rubrica_md: str) -> list[dict]:
     """
     user_message = f"RÚBRICA (md):\n\n{rubrica_md}"
     raw = chat_completion_json_content(
-        client,
+        get_openai_client(),
         system=system_prompt_pdf_listar_criterios(),
         user=user_message,
         temperature=0,
@@ -155,7 +152,7 @@ MÁX canónico (techo; no reinterpretes; el sistema fija el máximo en salida): 
 """
 
     raw_p = chat_completion_json_content(
-        client,
+        get_openai_client(),
         system=system_prompt_pdf_puntaje_criterio(),
         user=user_puntaje,
         temperature=score_temperature(),
@@ -179,7 +176,7 @@ ENTREGABLE:
 """
 
     raw_r = chat_completion_json_content(
-        client,
+        get_openai_client(),
         system=system_prompt_pdf_retro_criterio(),
         user=user_retro,
         temperature=retro_temperature(),
