@@ -10,6 +10,7 @@ from grader_agent.services.feedback import FeedbackService
 from grader_agent.services.grading import GradingService
 from grader_agent.services.output_validation import OutputValidationService
 from grader_agent.services.pdf_extraction import PDFExtractionService
+from grader_agent.services.plain_text_extraction import PlainTextExtractionService
 from grader_agent.services.research import RubricResearchService
 from grader_agent.services.rubric_validation import RubricValidationService
 from grader_agent.services.transcription import TranscriptionService
@@ -26,6 +27,7 @@ def create_grading_pipeline() -> GradingPipeline:
         transcription_service=TranscriptionService(whisper),
         pdf_extraction_service=PDFExtractionService(),
         code_notebook_extraction_service=CodeNotebookExtractionService(),
+        plain_text_extraction_service=PlainTextExtractionService(),
         content_validation=ContentValidationService(chat),
         rubric_validation=RubricValidationService(),
         grading=GradingService(chat),
